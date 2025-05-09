@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Cafézão da Computação",
+    "slug": "cafezao-da-computacao",
+    "version": "1.0.6",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "owner": "giuseph",
+    "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "697811f9-cec3-4441-825a-318da6391a3e"
+      },
+      "router": {
+        "origin": false
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cafezao.computacao"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#4A2B1C"
+      },
+      "icon": "./assets/images/icon.png",
+      "package": "com.cafezao.computacao",
+      "versionCode": 5
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "sounds": []
+        }
+      ]
+    ],
+    "notification": {
+      "icon": "./assets/images/icon.png",
+      "color": "#ffffff",
+      "iosDisplayInForeground": true,
+      "androidMode": "default",
+      "androidCollapsedTitle": "Café da Computação"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

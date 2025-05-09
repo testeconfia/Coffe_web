@@ -1,0 +1,3 @@
+para build na maquina local usar :
+    eas build -p android --profile preview --local                 
+                                               
