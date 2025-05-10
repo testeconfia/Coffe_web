@@ -12,6 +12,7 @@ import {
   StatusBar,
   Keyboard,
   BackHandler,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -131,97 +132,103 @@ export default function LoginScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <View style={styles.content}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('@/assets/imgs/xicara.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-          
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>Cafezão da Computação</Text>
-            <Text style={styles.subtitle}>Gerencie seus cafés</Text>
-          </View>
-
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#A0A0A0" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#A0A0A0"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                editable={!isLoading}
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('@/assets/imgs/xicara.png')}
+                style={styles.logo}
+                resizeMode="contain"
               />
             </View>
             
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#A0A0A0" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Senha"
-                placeholderTextColor="#A0A0A0"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                editable={!isLoading}
-              />
-              <TouchableOpacity 
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
-                <Ionicons 
-                  name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={20} 
-                  color="#A0A0A0" 
-                />
-              </TouchableOpacity>
+            <View style={styles.textContainer}>
+              <Text style={styles.title}>Cafezão da Computação</Text>
+              <Text style={styles.subtitle}>Gerencie seus cafés</Text>
             </View>
 
-            <TouchableOpacity 
-              style={[styles.button, isLoading && styles.buttonDisabled]} 
-              onPress={handleLogin}
-              activeOpacity={0.8}
-              disabled={isLoading}
-            >
-              <LinearGradient
-                colors={['#8B4513', '#A0522D']}
-                style={styles.buttonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                {isLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <View style={styles.loadingDot} />
-                    <View style={styles.loadingDot} />
-                    <View style={styles.loadingDot} />
-                  </View>
-                ) : (
-                  <Text style={styles.buttonText}>Entrar</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+            <View style={styles.form}>
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#A0A0A0" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#A0A0A0"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#A0A0A0" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Senha"
+                  placeholderTextColor="#A0A0A0"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity 
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                    size={20} 
+                    color="#A0A0A0" 
+                  />
+                </TouchableOpacity>
+              </View>
 
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={() => {
-                Keyboard.dismiss();
-                router.push('/acesso/register');
-              }}
-              activeOpacity={0.7}
-              disabled={isLoading}
-            >
-              <Text style={styles.registerText}>
-                Não tem uma conta? <Text style={styles.registerTextBold}>Cadastre-se</Text>
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.button, isLoading && styles.buttonDisabled]} 
+                onPress={handleLogin}
+                activeOpacity={0.8}
+                disabled={isLoading}
+              >
+                <LinearGradient
+                  colors={['#8B4513', '#A0522D']}
+                  style={styles.buttonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <View style={styles.loadingDot} />
+                      <View style={styles.loadingDot} />
+                      <View style={styles.loadingDot} />
+                    </View>
+                  ) : (
+                    <Text style={styles.buttonText}>Entrar</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  router.push('/acesso/register');
+                }}
+                activeOpacity={0.7}
+                disabled={isLoading}
+              >
+                <Text style={styles.registerText}>
+                  Não tem uma conta? <Text style={styles.registerTextBold}>Cadastre-se</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -234,10 +241,14 @@ const styles = StyleSheet.create({
   gradient: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   content: {
     flex: 1,
     padding: 20,
     justifyContent: 'center',
+    minHeight: height,
   },
   logoContainer: {
     alignItems: 'center',
