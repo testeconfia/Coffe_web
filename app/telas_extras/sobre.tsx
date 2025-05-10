@@ -11,7 +11,7 @@ export default function SobreScreen() {
   const handleDownload = async () => {
     try {
       coffeeAlert('Redirecionando para o download...\nAguarde alguns instantes.', 'info');
-      const apkUrl = '/Cafezao_da_Computacao.apk';
+      const apkUrl = 'https://dowloadappco.netlify.app/Cafezao_da_Computacao.apk';
       await Linking.openURL(apkUrl);
       coffeeAlert('Download iniciado!', 'success');
     } catch (error) {
