@@ -6,12 +6,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-reanimated';
-import { Image } from 'react-native';
+import { Image, Platform } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { AppProvider } from '@/contexts/AppContext';
 import { CoffeeModal } from '@/components/CoffeeModal';
-import { useCoffeeAlertProvider } from '@/utils/coffeeAlert';
+import { coffeeAlert, useCoffeeAlertProvider } from '@/utils/coffeeAlert';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -26,14 +26,21 @@ export default function RootLayout() {
 
   useEffect(() => {
     const checkLoginStatus = async () => {
-      try {
-        const userToken = await AsyncStorage.getItem('userToken');
-        if (!userToken) {
+      if (Platform.OS === 'web') {
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        if (isAndroid) {
+          coffeeAlert('Aviso: Esta pagina web é destinado a dispositivos IOS. Por favor, use o aplicativo para acessar o sistema.', 'warning');
+          router.replace('/telas_extras/sobre');
+          return;
+        } }
+        try {
+          const userToken = await AsyncStorage.getItem('userToken');
+          if (!userToken) {
           router.replace('/acesso');
         } else {
-          //router.replace('/(tabs)');
-          router.replace('/telas_extras/sobre');
-        }
+          router.replace('/(tabs)');
+          //router.replace('/telas_extras/sobre');
+          }
       } catch (error) {
         console.error('Erro ao verificar o status de login:', error);
         router.replace('/acesso');

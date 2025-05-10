@@ -10,8 +10,9 @@ export default function SobreScreen() {
 
   const handleDownload = async () => {
     try {
-      coffeeAlert('Baixando APK...\nAguarde alguns instantes.', 'info');
-      await Linking.openURL('https://raw.githubusercontent.com/Giuseph66/coffe_web/blob/main/Cafezao_da_Computacao.apk');
+      coffeeAlert('Redirecionando para o download...\nAguarde alguns instantes.', 'info');
+      const apkUrl = '/Cafezao_da_Computacao.apk';
+      await Linking.openURL(apkUrl);
       coffeeAlert('Download iniciado!', 'success');
     } catch (error) {
       console.error('Erro ao baixar:', error);
