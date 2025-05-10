@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
-
+import { coffeeAlert } from '@/utils/coffeeAlert';
 const { width } = Dimensions.get('window');
 
 const games = [
@@ -60,13 +60,14 @@ export default function JogosScreen() {
 
   const handleGamePress = (game: typeof games[0]) => {
     if (game.id === 'cafe-dino') {
-      Alert.alert(
-        'Em Desenvolvimento',
-        'O Café Dino ainda está em desenvolvimento. Deseja jogar o jogo do dinossauro do Google?',
+      coffeeAlert(
+        'Em Desenvolvimento\n\nO Café Dino ainda está em desenvolvimento. Deseja jogar o jogo do dinossauro do Google?',
+        'warning',
         [
           {
             text: 'Não',
-            style: 'cancel'
+            style: 'cancel',
+            onPress: () => {}
           },
           {
             text: 'Sim',

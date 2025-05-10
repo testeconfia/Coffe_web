@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  Alert,
   RefreshControl,
   StatusBar,
   Modal
@@ -23,6 +22,7 @@ import { doc, onSnapshot, collection, query, where, orderBy, getDoc } from 'fire
 import { Colors, ThemeType } from '@/constants/Colors';
 import { useColorScheme } from 'react-native';
 import ImageViewer from 'react-native-image-zoom-viewer';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 
 const { width,height } = Dimensions.get('window');
 
@@ -235,11 +235,10 @@ export default function CreditScreen() {
       const newCredit = userData.credit + amount;
       await AsyncStorage.setItem('userCredit', newCredit.toString());
       await syncWithFirebase();
-      //Alert.alert('Sucesso', `R$ ${amount.toFixed(2)} adicionados ao seu saldo!`);
-      Alert.alert('Assim','No momento não é possível adicionar crédito. somente assinatura premium.');
+      coffeeAlert(`R$ ${amount.toFixed(2)} adicionados ao seu saldo!`, 'success');
 
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível adicionar crédito. Tente novamente.');
+      coffeeAlert('Não foi possível adicionar crédito. Tente novamente.', 'error');
     }
   };
 
@@ -256,7 +255,7 @@ export default function CreditScreen() {
       });
       return;
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível ativar a assinatura. Tente novamente.');
+      coffeeAlert('Não foi possível ativar a assinatura. Tente novamente.', 'error');
     }
   };
 
@@ -502,7 +501,7 @@ export default function CreditScreen() {
                 <View style={[styles.activeSubscription, { backgroundColor: Colors[currentTheme].activeSubscription }]}>
                   <Text style={[styles.activeText, { color: Colors[currentTheme].activeText }]}>Assinatura Ativa</Text>
                   <Text style={[styles.endDateText, { color: Colors[currentTheme].endDateText }]}>
-                    Válido até: {formatDate(userData.subscriptionEndDate)}
+                    Válido até: {userData.subscriptionEndDate ? new Date(userData.subscriptionEndDate).toLocaleDateString('pt-BR') : '-'}
                   </Text>
                 </View>
               ) : userData.subscriptionStatus === 'avaliando' ? (

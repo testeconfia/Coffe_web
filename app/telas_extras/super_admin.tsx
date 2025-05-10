@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   TextInput,
   RefreshControl,
@@ -24,6 +23,7 @@ import { db } from '@/config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 
 interface AdminUser {
   id: string;
@@ -147,7 +147,7 @@ const SuperAdminScreen = () => {
       const isSuperAdmin = await AsyncStorage.getItem('isSuperAdmin');
       
       if (isSuperAdmin !== 'true') {
-        Alert.alert('Acesso Negado', 'Você não tem permissão para acessar esta tela.');
+        coffeeAlert('Você não tem permissão para acessar esta tela.','error');
         router.back();
         return;
       }
@@ -155,7 +155,7 @@ const SuperAdminScreen = () => {
       loadData();
     } catch (error) {
       console.error('Erro ao verificar acesso:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao verificar suas permissões.');
+      coffeeAlert('Ocorreu um erro ao verificar suas permissões.','error');
       router.back();
     }
   };
@@ -213,7 +213,7 @@ const SuperAdminScreen = () => {
       });
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao carregar os dados.');
+      coffeeAlert('Ocorreu um erro ao carregar os dados.','error');
     } finally {
       setLoading(false);
     }
@@ -226,11 +226,11 @@ const SuperAdminScreen = () => {
   }, []);
 
   const handleRemoveAdmin = async (adminId: string) => {
-    Alert.alert(
-      'Remover Privilégios de Administrador',
-      'Tem certeza que deseja remover os privilégios de administrador deste usuário?',
+    coffeeAlert(
+      'Remover Privilégios de Administrador\n\nTem certeza que deseja remover os privilégios de administrador deste usuário?',
+      'warning',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' , onPress: () => {}},
         {
           text: 'Remover',
           style: 'destructive',
@@ -277,10 +277,10 @@ const SuperAdminScreen = () => {
                   : admin
               ));
               
-              Alert.alert('Sucesso', 'Privilégios de administrador removidos com sucesso.');
+              coffeeAlert('Privilégios de administrador removidos com sucesso.','success');
             } catch (error) {
               console.error('Erro ao remover privilégios de administrador:', error);
-              Alert.alert('Erro', 'Ocorreu um erro ao remover os privilégios de administrador.');
+              coffeeAlert('Ocorreu um erro ao remover os privilégios de administrador.','error');
             }
           },
         },
@@ -290,7 +290,7 @@ const SuperAdminScreen = () => {
 
   const handleAddAdmin = async () => {
     if (!newAdminName || !newAdminEmail || !newAdminPassword) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      coffeeAlert('Por favor, preencha todos os campos.','warning');
       return;
     }
 
@@ -322,10 +322,10 @@ const SuperAdminScreen = () => {
       setNewAdminEmail('');
       setNewAdminPassword('');
       
-      Alert.alert('Sucesso', 'Administrador adicionado com sucesso.');
+      coffeeAlert('Administrador adicionado com sucesso.','success');
     } catch (error) {
       console.error('Erro ao adicionar administrador:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao adicionar o administrador.');
+      coffeeAlert('Ocorreu um erro ao adicionar o administrador.','error');
     } finally {
       setIsAddingAdmin(false);
     }
@@ -344,10 +344,10 @@ const SuperAdminScreen = () => {
         a.id === adminId ? { ...a, status: newStatus } : a
       ));
       
-      Alert.alert('Sucesso', `Status do usuário alterado para ${newStatus}.`);
+      coffeeAlert(`Status do usuário alterado para ${newStatus}.`, 'success');
     } catch (error) {
       console.error('Erro ao alterar status do usuário:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao alterar o status do usuário.');
+      coffeeAlert('Ocorreu um erro ao alterar o status do usuário.','error');
     }
   };
 
@@ -364,10 +364,10 @@ const SuperAdminScreen = () => {
         a.id === userId ? { ...a, isAdmin: newAdminStatus } : a
       ));
       
-      Alert.alert('Sucesso', `${user?.name} ${newAdminStatus ? 'agora é' : 'não é mais'} um administrador.`);
+      coffeeAlert(`${user?.name} ${newAdminStatus ? 'agora é' : 'não é mais'} um administrador.`, 'success');
     } catch (error) {
       console.error('Erro ao alterar privilégios de administrador:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao alterar os privilégios de administrador.');
+      coffeeAlert('Ocorreu um erro ao alterar os privilégios de administrador.','error');
     }
   };
 
@@ -419,10 +419,10 @@ const SuperAdminScreen = () => {
         await AsyncStorage.setItem('isSuperAdmin', 'false');
       }
       
-      Alert.alert('Sucesso', `${user?.name} ${newSuperAdminStatus ? 'agora é' : 'não é mais'} um super administrador.`);
+      coffeeAlert(`${user?.name} ${newSuperAdminStatus ? 'agora é' : 'não é mais'} um super administrador.`, 'success');
     } catch (error) {
       console.error('Erro ao alterar privilégios de super administrador:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao alterar os privilégios de super administrador.');
+      coffeeAlert('Ocorreu um erro ao alterar os privilégios de super administrador.','error');
     }
   };
 
@@ -644,14 +644,14 @@ const SuperAdminScreen = () => {
         }
       }, (error) => {
         console.error('Erro ao carregar configurações:', error);
-        Alert.alert('Erro', 'Ocorreu um erro ao carregar as configurações do sistema.');
+        coffeeAlert('Ocorreu um erro ao carregar as configurações do sistema.','error');
       });
 
       // Retornar a função de limpeza para remover o listener quando o componente for desmontado
       return unsubscribe;
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao carregar as configurações do sistema.');
+      coffeeAlert('Ocorreu um erro ao carregar as configurações do sistema.','error');
     }
   };
 
@@ -679,10 +679,10 @@ const SuperAdminScreen = () => {
       await AsyncStorage.setItem('systemSettings', JSON.stringify(settingsData));
       
       setIsSettingsModalVisible(false);
-      Alert.alert('Sucesso', 'Configurações salvas com sucesso!');
+      coffeeAlert('Configurações salvas com sucesso!','success');
     } catch (error) {
       console.error('Erro ao salvar configurações:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar as configurações.');
+      coffeeAlert('Ocorreu um erro ao salvar as configurações.','error');
     } finally {
       setIsSavingSettings(false);
     }

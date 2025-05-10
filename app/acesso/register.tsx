@@ -7,7 +7,6 @@ import {
   StyleSheet,
   SafeAreaView,
   Platform,
-  Alert,
   Image,
   Dimensions,
   StatusBar,
@@ -21,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '@/config/firebase';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,18 +36,17 @@ export default function RegisterScreen() {
   const router = useRouter();
 
   const handleLogoPress = () => {
-    setIsAdmin(true);
-    Alert.alert('Admin Mode', 'Você agora é um administrador!');
+    coffeeAlert('Para de ser curiozo!!!','success');
   };
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos');
+      coffeeAlert('Por favor, preencha todos os campos','error');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      coffeeAlert('As senhas não coincidem','error');
       return;
     }
 
@@ -59,7 +58,7 @@ export default function RegisterScreen() {
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
-        Alert.alert('Erro', 'Este email já está em uso');
+        coffeeAlert('Este email já está em uso','error');
         setIsLoading(false);
         return;
       }
@@ -89,7 +88,7 @@ export default function RegisterScreen() {
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Registration error:', error);
-      Alert.alert('Erro', 'Ocorreu um erro durante o cadastro');
+      coffeeAlert('Ocorreu um erro durante o cadastro','error');
     } finally {
       setIsLoading(false);
     }

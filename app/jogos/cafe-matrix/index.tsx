@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Image, StatusBar, SafeAreaView, Easing, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Image, StatusBar, SafeAreaView, Easing, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { GAME_CONSTANTS, DIMENSIONS, Dimension } from './constants';
 import Portal from './Portal';
 import { spawnData, PortalData } from './helpers';
-
+import { coffeeAlert } from '@/utils/coffeeAlert';
 const { width, height } = Dimensions.get('window');
 
 interface Portal {
@@ -354,7 +354,7 @@ const CafeMatrix = () => {
     setGameState('gameOver');
     if (score > bestScore) {
       setBestScore(score);
-      Alert.alert('Novo Recorde!', `Parabéns! Você fez ${score} pontos!`);
+      coffeeAlert(`Parabéns! Você fez ${score} pontos!`, 'success');
     }
   }, [score, bestScore]);
 

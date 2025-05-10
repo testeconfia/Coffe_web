@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   Platform,
   Animated,
   Dimensions,
@@ -21,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, ThemeColors, ThemeType } from '@/constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 
 const { width, height } = Dimensions.get('window');
 
@@ -836,7 +835,6 @@ export default function ThemeScreen() {
   };
 
   const handleThemeSelect = async (theme: ThemeType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     if (theme === 'custom') {
       setIsEditing(true);
@@ -851,12 +849,10 @@ export default function ThemeScreen() {
       setIsEditing(false);
     } catch (error) {
       console.error('Error selecting theme:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
   const toggleFollowSystem = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     const newValue = !followSystem;
     setFollowSystem(newValue);
@@ -867,14 +863,13 @@ export default function ThemeScreen() {
       setSelectedTheme(systemTheme);
       
       // Mostrar mensagem de sucesso
-      Alert.alert(
-        'Tema do Sistema Ativado',
+      coffeeAlert(
         'O tema do sistema foi ativado. As telas serão recarregadas.',
+        'info',
         [
           {
             text: 'OK',
             onPress: () => {
-              // Navegar de volta para a tela principal para forçar o recarregamento de todas as telas
               router.replace('/(tabs)');
             }
           }
@@ -893,7 +888,6 @@ export default function ThemeScreen() {
   const openColorPicker = (key: keyof ThemeColors) => {
     setSelectedColorKey(key);
     setColorPickerVisible(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const closeColorPicker = () => {
@@ -904,8 +898,7 @@ export default function ThemeScreen() {
   const copyThemeFromPalette = (paletteName: string) => {
     const palette = colorPalettes[paletteName as keyof typeof colorPalettes];
     setCustomColors(palette);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Sucesso', `Tema "${paletteName}" aplicado com sucesso!`);
+    coffeeAlert('Tema aplicado com sucesso!','success');
     setShowPaletteModal(false);
   };
 
@@ -926,10 +919,8 @@ export default function ThemeScreen() {
       setIsEditing(false);
       
       // Feedback visual
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Error saving custom theme:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
@@ -1350,7 +1341,6 @@ export default function ThemeScreen() {
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.back();
             }}
           >
@@ -1362,7 +1352,6 @@ export default function ThemeScreen() {
           <TouchableOpacity 
             style={styles.previewButton}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setPreviewMode(true);
             }}
           >
@@ -1510,7 +1499,6 @@ export default function ThemeScreen() {
               onPress={() => {
                 handleThemeSelect('custom');
                 setIsEditing(true);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               }}
               disabled={followSystem}
             >
@@ -1551,7 +1539,6 @@ export default function ThemeScreen() {
                 <TouchableOpacity 
                   onPress={() => {
                     setIsEditing(false);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
                   <Ionicons name="close" size={24} color={Colors[selectedTheme].text} />
@@ -1562,7 +1549,6 @@ export default function ThemeScreen() {
                 style={[styles.copyThemeButton, { backgroundColor: Colors[selectedTheme].primary }]}
                 onPress={() => {
                   setShowPaletteModal(true);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
                 <Ionicons name="color-palette" size={20} color="#FFFFFF" />
@@ -1759,7 +1745,6 @@ export default function ThemeScreen() {
                   style={[styles.button, styles.cancelButton]}
                   onPress={() => {
                     setIsEditing(false);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
                   <Text style={styles.buttonText}>Cancelar</Text>

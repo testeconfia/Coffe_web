@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Dimensions,
   Clipboard,
   Image,
@@ -24,7 +23,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/fi
 import { useApp } from '@/contexts/AppContext';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Colors } from '@/constants/Colors';
-
+import { coffeeAlert } from '@/utils/coffeeAlert';
 const { width, height } = Dimensions.get('window');
 
 export default function PaymentScreen() {
@@ -98,12 +97,12 @@ export default function PaymentScreen() {
         const userName = await AsyncStorage.getItem('userName');
         
         if (!userToken || !userName) {
-          Alert.alert('Erro', 'Você precisa estar logado para acessar esta funcionalidade');
+          coffeeAlert('Você precisa estar logado para acessar esta funcionalidade','error');
           router.push('/acesso');
         }
       } catch (error) {
         console.error('Erro ao verificar autenticação:', error);
-        Alert.alert('Erro', 'Ocorreu um erro ao verificar sua autenticação');
+        coffeeAlert('Ocorreu um erro ao verificar sua autenticação','error');
         router.push('/acesso');
       }
     };
@@ -174,17 +173,16 @@ export default function PaymentScreen() {
       const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
       
       if (galleryPermission.status !== 'granted' && cameraPermission.status !== 'granted') {
-        Alert.alert(
-          'Permissão necessária', 
-          'Precisamos de acesso à sua galeria ou câmera para selecionar o comprovante.'
+        coffeeAlert(
+          'Precisamos de acesso à sua galeria ou câmera para selecionar o comprovante.', 'error'
         );
         return;
       }
 
       // Mostrar um menu de opções para o usuário escolher
-      Alert.alert(
-        'Selecionar Comprovante',
+      coffeeAlert(
         'Escolha como deseja adicionar o comprovante',
+        'info',
         [
           {
             text: 'Galeria',
@@ -218,24 +216,26 @@ export default function PaymentScreen() {
           },
           {
             text: 'Cancelar',
-            style: 'cancel'
+            style: 'cancel',
+            onPress: () => {}
           }
         ]
       );
     } catch (error) {
       console.error('Erro ao selecionar imagem:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao selecionar a imagem. Tente novamente.');
+      coffeeAlert('Ocorreu um erro ao selecionar a imagem. Tente novamente.','error');
     }
   };
 
   const handlePayment = () => {
-    Alert.alert(
-      'Método de Pagamento Indisponível',
+    coffeeAlert(
       'No momento, aceitamos apenas pagamentos via PIX. Deseja continuar com o pagamento via PIX?',
+      'info',
       [
         {
           text: 'Cancelar',
           style: 'cancel',
+          onPress: () => {}
         },
         {
           text: 'Ir para PIX',
@@ -247,7 +247,7 @@ export default function PaymentScreen() {
 
   const handleReceiptUpload = async () => {
     if (!receiptImage) {
-      Alert.alert('Erro', 'Por favor, selecione um comprovante de pagamento');
+      coffeeAlert('Por favor, selecione um comprovante de pagamento','warning');
       return;
     }
 
@@ -257,7 +257,7 @@ export default function PaymentScreen() {
       const userName = await AsyncStorage.getItem('userName');
       
       if (!userToken || !userName) {
-        Alert.alert('Erro', 'Usuário não autenticado');
+        coffeeAlert('Usuário não autenticado','error');
         router.push('/acesso');
         return;
       }
@@ -280,7 +280,7 @@ export default function PaymentScreen() {
           console.log('Imagem convertida para base64 com sucesso');
         } catch (error) {
           console.error('Erro ao converter imagem para base64:', error);
-          Alert.alert('Erro', 'Não foi possível processar a imagem. Tente novamente.');
+          coffeeAlert('Não foi possível processar a imagem. Tente novamente.','error');
           setIsLoading(false);
           return;
         }
@@ -317,14 +317,14 @@ export default function PaymentScreen() {
       // Sincronizar com o Firebase para atualizar o contexto
       await syncWithFirebase();
       
-      Alert.alert(
-        'Comprovante Enviado',
+      coffeeAlert(
         'Após a verificação do seu pagamento, sua assinatura será liberada automaticamente. Você receberá uma notificação quando isso acontecer.',
+        'success',
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao processar seu pagamento. Por favor, tente novamente.');
+      coffeeAlert('Ocorreu um erro ao processar seu pagamento. Por favor, tente novamente.','error');
     } finally {
       setIsLoading(false);
     }

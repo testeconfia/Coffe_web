@@ -9,7 +9,6 @@ import {
   ScrollView,
   Dimensions,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +22,7 @@ import { db } from '@/config/firebase';
 import { collection, query, orderBy, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { sendNotificationToAllUsers, registerForPushNotificationsAsync } from '@/services/NotificationService';
 import * as Notifications from 'expo-notifications';
-
+import { coffeeAlert } from '@/utils/coffeeAlert';
 const { width, height } = Dimensions.get('window');
 
 interface Notification {
@@ -286,19 +285,17 @@ export default function NotificationsScreen() {
 
   const handleTestNotification = async () => {
     try {
-      Alert.alert(
-        'Enviando Notificação',
+        coffeeAlert(
         'Enviando notificação de teste...',
-        [{ text: 'OK' }]
+        'info'
       );
       
       // Verificar permissões de notificação
       const { status } = await Notifications.getPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permissão Necessária',
-          'Por favor, permita o envio de notificações para testar esta funcionalidade.',
-          [{ text: 'OK' }]
+        coffeeAlert(
+          'Permissão Necessária\n\nPor favor, permita o envio de notificações para testar esta funcionalidade.',
+          'info'
         );
         return;
       }
@@ -310,18 +307,16 @@ export default function NotificationsScreen() {
         { type: 'info', screen: 'avisos' }
       );
       
-      Alert.alert(
-        'Sucesso',
+      coffeeAlert(
         'Notificação de teste enviada com sucesso!',
-        [{ text: 'OK' }]
+        'success'
       );
     } catch (error) {
       console.error('Erro ao enviar notificação de teste:', error);
       
-      Alert.alert(
-        'Erro',
+      coffeeAlert(
         'Não foi possível enviar a notificação de teste. Verifique os logs para mais detalhes.',
-        [{ text: 'OK' }]
+        'error'
       );
     }
   };

@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   FlatList,
   Image,
   Dimensions,
@@ -30,7 +29,7 @@ import Device from 'react-native-device-info';
 import { Colors, ThemeType } from '../../constants/Colors';
 import { useColorScheme } from 'react-native';
 import ImageViewer from 'react-native-image-zoom-viewer';
-
+import { coffeeAlert } from '@/utils/coffeeAlert';
 const { width, height } = Dimensions.get('window');
 
 // Interface para os dados de pagamento
@@ -297,10 +296,10 @@ export default function AdminScreen() {
       await setupRealtimeListeners();
       
       setIsModalVisible(false);
-      Alert.alert('Sucesso', 'Pagamento aprovado com sucesso!');
+      coffeeAlert('Pagamento aprovado com sucesso!', 'success');
     } catch (error) {
       console.error('Error approving payment:', error);
-      Alert.alert('Erro', 'Não foi possível aprovar o pagamento. Tente novamente.');
+      coffeeAlert('Não foi possível aprovar o pagamento. Tente novamente.', 'error');
     } finally {
       setIsActionLoading(false);
       setLoadingActionType(null);
@@ -322,11 +321,11 @@ export default function AdminScreen() {
       await syncWithFirebase();
       await setupRealtimeListeners();
       
-      Alert.alert('Sucesso', 'Pagamento rejeitado com sucesso!');
+      coffeeAlert('Pagamento rejeitado com sucesso!', 'success');
       setIsModalVisible(false);
     } catch (error) {
       console.error('Error rejecting payment:', error);
-      Alert.alert('Erro', 'Não foi possível rejeitar o pagamento. Tente novamente.');
+      coffeeAlert('Não foi possível rejeitar o pagamento. Tente novamente.', 'error');
     } finally {
       setIsActionLoading(false);
       setLoadingActionType(null);
@@ -339,7 +338,7 @@ export default function AdminScreen() {
       setLoadingActionType(subscription.status === 'active' ? 'deactivate' : 'activate');
       const adm = await AsyncStorage.getItem('isAdmin');
       if (adm !== 'true') {
-        Alert.alert('Erro', 'Você não tem permissão para alterar o status da assinatura.');
+        coffeeAlert('Você não tem permissão para alterar o status da assinatura.', 'error');
         router.push('/(tabs)');
         return;
       }
@@ -379,7 +378,7 @@ export default function AdminScreen() {
       await syncWithFirebase();
     } catch (error) {
       console.error('Erro ao alterar status da assinatura:', error);
-      Alert.alert('Erro', 'Não foi possível alterar o status da assinatura.');
+        coffeeAlert('Não foi possível alterar o status da assinatura.', 'error');
     } finally {
       setIsActionLoading(false);
       setLoadingActionType(null);

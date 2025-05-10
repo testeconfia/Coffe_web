@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   TextInput,
   RefreshControl,
@@ -24,6 +23,7 @@ import { db } from '@/config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 interface PaymentData {
   id: string;
   userId: string;
@@ -115,13 +115,13 @@ const FinanceiroScreen = () => {
     try {
       const isAdmin = await AsyncStorage.getItem('isAdmin');
       if (isAdmin !== 'true') {
-        Alert.alert('Acesso Negado', 'Você não tem permissão para acessar esta tela.');
+        coffeeAlert('Acesso Negado','error');
         router.back();
         return;
       }
     } catch (error) {
       console.error('Erro ao verificar acesso:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao verificar suas permissões.');
+      coffeeAlert('Ocorreu um erro ao verificar suas permissões.','error');
       router.back();
     }
   };
@@ -162,7 +162,7 @@ const FinanceiroScreen = () => {
       return () => unsubscribe();
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao carregar os dados.');
+      coffeeAlert('Ocorreu um erro ao carregar os dados.','error');
     } finally {
       setLoading(false);
     }

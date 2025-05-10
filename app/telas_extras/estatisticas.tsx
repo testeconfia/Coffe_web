@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions, Alert, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
@@ -8,7 +8,7 @@ import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Colors, ThemeType } from '@/constants/Colors';
-
+import { coffeeAlert } from '@/utils/coffeeAlert';
 interface CoffeeStats {
   today: number;
   total: number;
@@ -84,7 +84,7 @@ export default function StatisticsScreen() {
   const loadStatistics = async () => {
     const tokens = await AsyncStorage.getItem('userToken');
     if (!tokens) {
-      Alert.alert('Erro', 'Usuário não autenticado');
+      coffeeAlert('Usuário não autenticado','error');
       return;
     }
 

@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  Alert,
   TextInput,
   Modal,
   Switch,
@@ -27,6 +26,7 @@ import { auth, db } from '@/config/firebase';
 import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { Colors, ThemeType } from '@/constants/Colors';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 
 const { width, height } = Dimensions.get('window');
 
@@ -154,14 +154,10 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Sair',
+    coffeeAlert(
       'Tem certeza que deseja sair?',
+      'warning',
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
         {
           text: 'Sair',
           style: 'destructive',
@@ -184,11 +180,16 @@ export default function ProfileScreen() {
               router.replace('/acesso');
             } catch (error) {
               console.error('Erro ao fazer logout:', error);
-              Alert.alert('Erro', 'Ocorreu um erro ao fazer logout');
+              coffeeAlert('Ocorreu um erro ao fazer logout','error');
             } finally {
               setIsLoggingOut(false);
             }
           },
+        },
+        {
+          text: 'Cancelar',
+          onPress: () => {},
+          style: 'cancel',
         },
       ],
     );
@@ -197,7 +198,7 @@ export default function ProfileScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria para selecionar uma foto de perfil.');
+      coffeeAlert('Precisamos de acesso à sua galeria para selecionar uma foto de perfil.','warning');
       return;
     }
 
@@ -242,10 +243,10 @@ export default function ProfileScreen() {
       await syncWithFirebase();
       
       setIsEditing(false);
-      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+      coffeeAlert('Perfil atualizado com sucesso!','success');
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Erro', 'Não foi possível atualizar o perfil. Tente novamente.');
+      coffeeAlert('Não foi possível atualizar o perfil. Tente novamente.','error');
     } finally {
       setIsSavingProfile(false);
     }
@@ -261,12 +262,12 @@ export default function ProfileScreen() {
     setIsChangingPassword(true);
     try {
       if (newPassword !== confirmPassword) {
-        Alert.alert('Erro', 'As senhas não coincidem.');
+        coffeeAlert('As senhas não coincidem.','error');
         return;
       }
 
       if (newPassword.length < 6) {
-        Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres.');
+        coffeeAlert('A senha deve ter pelo menos 6 caracteres.','error');
         return;
       }
 
@@ -285,7 +286,7 @@ export default function ProfileScreen() {
 
       const userData = userDoc.data();
       if (userData.password !== currentPassword) {
-        Alert.alert('Erro', 'Senha atual incorreta.');
+        coffeeAlert('Senha atual incorreta.','error');
         return;
       }
 
@@ -295,14 +296,14 @@ export default function ProfileScreen() {
         lastPasswordUpdate: new Date().toISOString()
       });
 
-      Alert.alert('Sucesso', 'Senha alterada com sucesso!');
+      coffeeAlert('Senha alterada com sucesso!','success');
       setIsPasswordModalVisible(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       console.error('Error changing password:', error);
-      Alert.alert('Erro', 'Não foi possível alterar a senha. Tente novamente.');
+      coffeeAlert('Não foi possível alterar a senha. Tente novamente.','error');
     } finally {
       setIsChangingPassword(false);
     }
@@ -660,7 +661,7 @@ export default function ProfileScreen() {
                 const message = 'Olá, preciso de ajuda com o aplicativo Café.';
                 const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
                 Linking.openURL(whatsappUrl).catch(err => {
-                  Alert.alert('Erro', 'Não foi possível abrir o WhatsApp');
+                  coffeeAlert('Não foi possível abrir o WhatsApp','error');
                 });
               }}
             >
@@ -722,7 +723,7 @@ export default function ProfileScreen() {
                 disabled={isLoading}
               />
             </View>
-              <TouchableOpacity onPress={() => Alert.alert('Assim','No momento não é possível alterar o idioma...\nVoce conhece o google translate ou sabe outro idioma?')}>
+              <TouchableOpacity onPress={() => coffeeAlert('No momento não é possível alterar o idioma...\nVoce conhece o google translate ou sabe outro idioma?','warning')}>
             <View style={[styles.preferenceItem, { backgroundColor: Colors[currentTheme].cardBackground }]}>
               <Ionicons name="language" size={24} color={Colors[currentTheme].primary} />
               <Text style={[styles.preferenceText, { color: Colors[currentTheme].textLight }]}>Idioma</Text>

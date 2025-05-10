@@ -7,7 +7,6 @@ import {
   StyleSheet,
   SafeAreaView,
   Platform,
-  Alert,
   Image,
   Dimensions,
   StatusBar,
@@ -20,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '@/config/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,7 +53,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos');
+      coffeeAlert('Por favor, preencha todos os campos','error');
       return;
     }
     console.log(email.toLowerCase(), password);
@@ -73,7 +73,7 @@ export default function LoginScreen() {
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        Alert.alert('Erro', 'Email ou senha incorretos');
+        coffeeAlert('Email ou senha incorretos','error');
         setIsLoading(false);
         return;
       }
@@ -116,7 +116,7 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Erro', 'Ocorreu um erro durante o login. Por favor, tente novamente.');
+      coffeeAlert('Ocorreu um erro durante o login. Por favor, tente novamente.','error');
     } finally {
       setIsLoading(false);
     }

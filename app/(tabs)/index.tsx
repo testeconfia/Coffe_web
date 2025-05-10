@@ -10,7 +10,6 @@ import {
   Dimensions,
   Modal,
   TextInput,
-  Alert,
   Animated,
   ActivityIndicator,
   RefreshControl,
@@ -29,6 +28,7 @@ import FirestoreUpdateIndicator from '@/components/FirestoreUpdateIndicator';
 import MaskedView from '@react-native-masked-view/masked-view';
 import StatisticsButton from '@/components/StatisticsButton';
 import { Colors, ThemeType } from '@/constants/Colors';
+import { coffeeAlert } from '@/utils/coffeeAlert';
 
 //const BASE_URL = 'http://192.168.238.18';
 //const BASE_URL = 'https://44e2-168-228-94-157.ngrok-free.app';
@@ -177,7 +177,7 @@ export default function HomeScreen() {
         return false;
       }
       if (!userName){
-        Alert.alert('Poderia me informar seu nome?', "Vá em 'Perfil' e informe seu nome.");
+        coffeeAlert('Poderia me informar seu nome? \n Vá em "Perfil" e informe seu nome.', 'info');
       }
       return true;
     } catch (error) {
@@ -325,7 +325,7 @@ export default function HomeScreen() {
     if (!isAuthenticated) return;
     const status = await AsyncStorage.getItem('subscriptionStatus');
     if (status != 'active') {
-      Alert.alert('Acesso Negado', 'Verifique sua assinatura e tente novamente');
+      coffeeAlert('Verifique sua assinatura e tente novamente', 'error');
       return;
     }
     console.log('Gerando sequência...');
@@ -348,13 +348,14 @@ export default function HomeScreen() {
         console.log('response', response);
         if (!response.ok) {
           const errorData = await response.json();
-          Alert.alert(
-            'Calma lá!',
+          coffeeAlert(
             `${errorData.detail || 'Erro ao gerar sequência.'}\n\nQue tal jogar um dos nossos mini-games enquanto espera a máquina ser liberada?`,
+            'warning',
             [
               {
                 text: 'Não, obrigado',
-                style: 'cancel'
+                style: 'cancel',
+                onPress: () => {}
               },
               {
                 text: 'Vamos jogar!',
@@ -373,10 +374,10 @@ export default function HomeScreen() {
         // Verificar se data.sequence existe e é um array antes de usar join
         if (data.sequence) {
           setSequence(data.sequence);
-          //Alert.alert('Sequence Generated',`A sequence was generated.\n\nSequence: ${data.sequence}\nCheck your system notifications as well.`);
+          //coffeeAlert(`A sequence was generated.\n\nSequence: ${data.sequence}\nCheck your system notifications as well.`);
         } else {
           console.log('Sequência inválida recebida:', data);
-          Alert.alert('Erro', 'A sequência gerada não está no formato esperado.');
+          coffeeAlert('A sequência gerada não está no formato esperado.', 'error');
         }
         setIsModalVisible(true);
         setIsLoading(false);
@@ -386,7 +387,7 @@ export default function HomeScreen() {
       } catch (error) {
         setIsModalVisible(false);
         console.log('Erro no generateSequence:', error);
-        Alert.alert('Erro', 'Verifique se a cafeteira esta ligada. \nCaso nao estiver ligada chame o monitor...\nLembre-se que voce deve estar conectado ao wifi "Hard_Lab"');
+        coffeeAlert('Verifique se a cafeteira esta ligada. \nCaso nao estiver ligada chame o monitor...\nLembre-se que voce deve estar conectado ao wifi "Hard_Lab"', 'error');
         setIsLoading(false);
       } 
   };
@@ -407,7 +408,7 @@ export default function HomeScreen() {
             clearInterval(countdownRef.current);
           }
           setIsModalVisible(false);
-          Alert.alert('Tempo esgotado', 'O tempo para inserir o código expirou. Tente novamente.');
+          coffeeAlert('O tempo para inserir o código expirou. Tente novamente.','warning');
           return 0;
         }
         return prevCount - 1;
@@ -426,23 +427,23 @@ export default function HomeScreen() {
 
   const handleConfirmCode = async () => {
     if (confirmationCode.length < 4) {
-      Alert.alert('Código inválido', 'Por favor, insira um código válido.(4 dígitos)');
+      coffeeAlert('Por favor, insira um código válido.(4 dígitos)','warning');
       return;
     }
     const tokens = await AsyncStorage.getItem('userToken');
     if (!tokens) {
-      Alert.alert('Erro', 'Usuário não autenticado');
+      coffeeAlert('Usuário não autenticado','error');
       return;
     }
     if (!selectedQuantity) {
-      Alert.alert('Quantidade não selecionada', 'Por favor, selecione a quantidade de café desejada.');
+      coffeeAlert('Por favor, selecione a quantidade de café desejada.','warning');
       return;
     }
     console.log(confirmationCode, selectedQuantity);
     setIsLoading(true);
     try {
       if (confirmationCode.trim() === '') {
-        Alert.alert('Atenção', 'Informe a sequência para validação.');
+        coffeeAlert('Informe a sequência para validação.','warning');
         return;
       }
       
@@ -504,11 +505,11 @@ export default function HomeScreen() {
         }
 
         const message = typeof result.message === 'string' ? result.message : 'Operação realizada com sucesso';
-        Alert.alert('Sucesso', message);
+        coffeeAlert(message, 'success');
         setSequence([]);          // limpa a sequência gerada
         setInputSequence('');       // limpa a entrada do usuário
         await syncWithFirebase();
-        Alert.alert('Sucesso', 'Código confirmado! Seu café ja ta saindo ... Lembre de por um copo para receber. (Aguarde alguns instantes)');
+        coffeeAlert('Código confirmado! Seu café ja ta saindo ... Lembre de por um copo para receber. (Aguarde alguns instantes)', 'success');
         setIsModalVisible(false);
         setConfirmationCode('');
         setSelectedQuantity(null);
@@ -518,12 +519,12 @@ export default function HomeScreen() {
       } else {
         setConfirmationCode('');
         const errorMessage = typeof result.detail === 'string' ? result.detail : 'Erro ao validar a sequência';
-        Alert.alert('Erro', 'Código inválido');
+        coffeeAlert('Código inválido', 'error');
         setIsModalVisible(false);
       }
     } catch (error) {
       console.error('Erro no validateSequence:', error);
-      Alert.alert('Erro', 'Não foi possível validar a sequência.');
+      coffeeAlert('Não foi possível validar a sequência.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -716,15 +717,15 @@ export default function HomeScreen() {
           // Mostrar alerta para o administrador sobre o índice ausente
           const isAdmin = await AsyncStorage.getItem('isAdmin') === 'true';
           if (isAdmin) {
-            Alert.alert(
-              "Aviso para Administrador",
-              "Um índice composto é necessário para consultas eficientes. Por favor, crie o índice no console do Firebase.",
+            coffeeAlert(
+              "Aviso para Administrador \n\nUm índice composto é necessário para consultas eficientes. Por favor, crie o índice no console do Firebase.",
+              'warning',
               [
                 { 
                   text: "Criar Índice", 
                   onPress: () => Linking.openURL(indexError.message.match(/https:\/\/[^\s]+/)?.[0] || 'https://console.firebase.google.com') 
                 },
-                { text: "OK" }
+                { text: "OK", onPress: () => {} }
               ]
             );
           }
@@ -735,9 +736,9 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.log('Erro ao carregar estatísticas:', error);
-      Alert.alert(
-        'Erro',
-        'Não foi possível carregar as estatísticas. Verifique sua conexão com a internet e tente novamente.'
+      coffeeAlert(
+        'Não foi possível carregar as estatísticas. Verifique sua conexão com a internet e tente novamente.',
+        'error'
       );
     } finally {
       setIsLoading(false);
@@ -795,15 +796,15 @@ export default function HomeScreen() {
           // Mostrar alerta para o administrador sobre o índice ausente
           const isAdmin = await AsyncStorage.getItem('isAdmin') === 'true';
           if (isAdmin) {
-            Alert.alert(
-              "Aviso para Administrador",
-              "Um índice composto é necessário para consultas eficientes. Por favor, crie o índice no console do Firebase.",
+            coffeeAlert(
+              "Aviso para Administrador \n\nUm índice composto é necessário para consultas eficientes. Por favor, crie o índice no console do Firebase.",
+              'warning',
               [
                 { 
                   text: "Criar Índice", 
                   onPress: () => Linking.openURL(indexError.message.match(/https:\/\/[^\s]+/)?.[0] || 'https://console.firebase.google.com') 
                 },
-                { text: "OK" }
+                { text: "OK", onPress: () => {} }
               ]
             );
           }
@@ -1101,15 +1102,15 @@ export default function HomeScreen() {
       });
       return;
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível ativar a assinatura. Tente novamente.');
+      coffeeAlert('Não foi possível ativar a assinatura. Tente novamente.', 'error');
     }
   };
 
   useEffect(() => {
     if (!isConnected) {
-      Alert.alert(
-        'Erro de Conexão',
-        'Não foi possível conectar ao banco de dados. Verifique sua conexão com a internet e tente novamente.',
+      coffeeAlert(
+        'Erro de Conexão\n\nNão foi possível conectar ao banco de dados. Verifique sua conexão com a internet e tente novamente.',
+        'error',
         [
           {
             text: 'Tentar Novamente',
@@ -1117,7 +1118,8 @@ export default function HomeScreen() {
           },
           {
             text: 'OK',
-            style: 'cancel'
+            style: 'cancel',
+            onPress: () => {}
           }
         ]
       );
