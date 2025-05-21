@@ -330,66 +330,64 @@ export default function HomeScreen() {
     }
     console.log('Gerando sequência...');
     console.log('systemSettings.serverUrl', systemSettings.serverUrl);
-      try {
-//const BASE_URL = 'http://192.168.238.18';
-//const BASE_URL = 'https://44e2-168-228-94-157.ngrok-free.app';
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        const response = await fetch(`${systemSettings.serverUrl}/generate-sequence`, {
-          method: 'GET', 
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        console.log('response', response);
-        if (!response.ok) {
-          const errorData = await response.json();
-          coffeeAlert(
-            `${errorData.detail || 'Erro ao gerar sequência.'}\n\nQue tal jogar um dos nossos mini-games enquanto espera a máquina ser liberada?`,
-            'warning',
-            [
-              {
-                text: 'Não, obrigado',
-                style: 'cancel',
-                onPress: () => {}
-              },
-              {
-                text: 'Vamos jogar!',
-                onPress: () => router.push('/jogos')
-              }
-            ]
-          );
-          setIsModalVisible(false);
-          setIsLoading(false);
-          return;
-        }
-  
-        const data = await response.json();
-        console.log('Sequência gerada:', data.sequence);
-        
-        // Verificar se data.sequence existe e é um array antes de usar join
-        if (data.sequence) {
-          setSequence(data.sequence);
-          //coffeeAlert(`A sequence was generated.\n\nSequence: ${data.sequence}\nCheck your system notifications as well.`);
-        } else {
-          console.log('Sequência inválida recebida:', data);
-          coffeeAlert('A sequência gerada não está no formato esperado.', 'error');
-        }
-        setIsModalVisible(true);
-        setIsLoading(false);
-        // Iniciar o contador regressivo quando o modal for aberto
-        setCountdown(60);
-        startCountdown();
-      } catch (error) {
+    try {
+      const response = await fetch(`${systemSettings.serverUrl}/generate-sequence`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': window.location.origin,
+          'Access-Control-Allow-Origin': '*',
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
+          'ngrok-skip-browser-warning': '69420'    
+        },
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      console.log('response', response);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Erro ao gerar sequência.' }));
+        coffeeAlert(
+          `${errorData.detail || 'Erro ao gerar sequência.'}\n\nQue tal jogar um dos nossos mini-games enquanto espera a máquina ser liberada?`,
+          'warning',
+          [
+            {
+              text: 'Não, obrigado',
+              style: 'cancel',
+              onPress: () => {}
+            },
+            {
+              text: 'Vamos jogar!',
+              onPress: () => router.push('/jogos')
+            }
+          ]
+        );
         setIsModalVisible(false);
-        console.log('Erro no generateSequence:', error);
-        coffeeAlert('Verifique se a cafeteira esta ligada. \nCaso nao estiver ligada chame o monitor...\nLembre-se que voce deve estar conectado ao wifi "Hard_Lab"', 'error');
         setIsLoading(false);
-      } 
+        return;
+      }
+      const data = await response.json();
+      console.log('Sequência gerada:', data.sequence);
+      
+      // Verificar se data.sequence existe e é um array antes de usar join
+      if (data.sequence) {
+        setSequence(data.sequence);
+      } else {
+        console.log('Sequência inválida recebida:', data);
+        coffeeAlert('A sequência gerada não está no formato esperado.', 'error');
+      }
+      setIsModalVisible(true);
+      setIsLoading(false);
+      // Iniciar o contador regressivo quando o modal for aberto
+      setCountdown(60);
+      startCountdown();
+    } catch (error) {
+      setIsModalVisible(false);
+      console.log('Erro no generateSequence:', error);
+      coffeeAlert('Verifique se a cafeteira esta ligada. \nCaso nao estiver ligada chame o monitor...\nLembre-se que voce deve estar conectado ao wifi "Hard_Lab"', 'error');
+      setIsLoading(false);
+    } 
   };
 
   // Função para iniciar o contador regressivo
@@ -450,8 +448,14 @@ export default function HomeScreen() {
       const response = await fetch(`${systemSettings.serverUrl}/validate-sequence`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': window.location.origin,
+          'Access-Control-Allow-Origin': '*',
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
+          'ngrok-skip-browser-warning': '69420'    
         },
+        mode: 'cors',
         body: JSON.stringify({ sequence: confirmationCode, quantity: selectedQuantity })
       });
 
@@ -1001,7 +1005,9 @@ export default function HomeScreen() {
                   const response = await fetch(`${systemSettings.serverUrl}/cancel-sequence`, {
                     method: 'GET',
                     headers: {
-                      'Content-Type': 'application/json'
+                      'Content-Type': 'application/json',
+                      'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
+                      'ngrok-skip-browser-warning': '69420'    
                     }
                   });
                   
