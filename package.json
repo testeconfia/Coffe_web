@@ -8,12 +8,14 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint",
-
-    "build": "expo export --platform web --output-dir dist"
+    "build": "expo export:web",
+    "test": "jest --watchAll",
+    "lint": "expo lint"
   },
+
+
   "dependencies": {
-    "@babel/runtime": "^7.27.6",
+    "@babel/runtime": "^7.27.6",  
     "@expo/vector-icons": "^14.1.0",
     "@mercadopago/sdk-react": "^1.0.3",
     "@react-native-async-storage/async-storage": "2.1.2",
