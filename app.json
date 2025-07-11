@@ -10,11 +10,11 @@
     "owner": "giuseph",
     "newArchEnabled": true,
     "extra": {
-      "router": {
-        "origin": false
-      },
       "eas": {
         "projectId": "697811f9-cec3-4441-825a-318da6391a3e"
+      },
+      "router": {
+        "origin": false
       }
     },
     "ios": {
@@ -53,9 +53,7 @@
           "color": "#ffffff",
           "sounds": []
         }
-      ],
-      "expo-font",
-      "expo-web-browser"
+      ]
     ],
     "notification": {
       "icon": "./assets/images/icon.png",
