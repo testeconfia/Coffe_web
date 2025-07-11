@@ -1,3 +1,9 @@
+// Corrige tslib default para web
+const tslibPatched: any = require('tslib');
+if (!tslibPatched.default) {
+  tslibPatched.default = tslibPatched;
+}
+
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
@@ -6,7 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-reanimated';
-import { Image, Platform } from 'react-native';
+import { Image, Platform, Text } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { AppProvider } from '@/contexts/AppContext';
@@ -29,8 +35,14 @@ export default function RootLayout() {
       if (Platform.OS === 'web') {
         const isAndroid = /Android/i.test(navigator.userAgent);
         if (isAndroid) {
-          coffeeAlert('Aviso: Esta pagina web é destinado a dispositivos IOS. Por favor, use o aplicativo para acessar o sistema.', 'warning');
-          router.replace('/telas_extras/sobre');
+          coffeeAlert('Aviso: Esta pagina web é destinado a dispositivos IOS. Por favor, use o aplicativo para acessar o sistema.', 'warning', [
+            {
+              text: 'OK',
+              onPress: () => {
+                router.replace('/tela_funcao/sobre');
+              }
+            }
+          ]);
           return;
         } }
         try {
@@ -53,6 +65,12 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = 'Cafézão da Computação';
+    }
+  }, []);
+
   if (!loaded) {
     return null;
   }
@@ -63,7 +81,7 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="acesso/index" options={{ headerShown: false }} />
           <Stack.Screen name="acesso/register" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false, }}/>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }}/>
           <Stack.Screen name="telas_extras/pagamento" options={{ headerShown: false }} />
           <Stack.Screen name="telas_extras/notifications" options={{ headerShown: false }} />
           <Stack.Screen name="telas_extras/estatisticas" options={{ headerShown: false }} />
@@ -73,6 +91,7 @@ export default function RootLayout() {
           <Stack.Screen name="telas_extras/avisos" options={{ headerShown: false }} />
           <Stack.Screen name="telas_extras/financeiro" options={{ headerShown: false }} />
           <Stack.Screen name="telas_extras/sobre" options={{ headerShown: false }} />
+          <Stack.Screen name="telas_extras/payment_selection" options={{ headerShown: false }} />
           <Stack.Screen name="jogos" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

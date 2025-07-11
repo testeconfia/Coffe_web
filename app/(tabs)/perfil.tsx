@@ -22,8 +22,8 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useColorScheme } from 'react-native';
 import { useApp } from '@/contexts/AppContext';
-import { auth, db } from '@/config/firebase';
-import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import {  db } from '@/config/firebase';
+import Constants from 'expo-constants';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { Colors, ThemeType } from '@/constants/Colors';
 import { coffeeAlert } from '@/utils/coffeeAlert';
@@ -164,13 +164,11 @@ export default function ProfileScreen() {
           onPress: async () => {
             setIsLoggingOut(true);
             try {
-              // Fazer logout do Firebase Auth
-              await signOut(auth);
-              
               // Limpar dados do AsyncStorage
               await AsyncStorage.removeItem('userToken');
               await AsyncStorage.removeItem('userName');
               await AsyncStorage.removeItem('isAdmin');
+              await AsyncStorage.removeItem('isSuperAdmin');
               await AsyncStorage.removeItem('userCredit');
               await AsyncStorage.removeItem('subscriptionStatus');
               await AsyncStorage.removeItem('subscriptionEndDate');
@@ -731,7 +729,7 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={24} color={Colors[currentTheme].primary} />
             </View>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/telas_extras/tema')}>
+              <TouchableOpacity onPress={() => router.push({pathname: '/telas_extras/tema'})}>
             <View style={[styles.preferenceItem, { backgroundColor: Colors[currentTheme].cardBackground }]}>
               <Ionicons name="color-palette" size={24} color={Colors[currentTheme].primary} />
               <Text style={[styles.preferenceText, { color: Colors[currentTheme].textLight }]}>Tema</Text>
@@ -783,8 +781,8 @@ export default function ProfileScreen() {
               <Text style={[styles.logoutText, { color: Colors[currentTheme].error }]}>Sair</Text>
             )}
           </TouchableOpacity>
+          <Text style={[styles.versionText, {color: Colors[currentTheme].textLight, textAlign: 'center', marginBottom: 10}]}>Versão: {Constants.expoConfig?.version || 'N/A'}</Text>
         </ScrollView>
-        
         <TouchableOpacity 
           style={[styles.fab, { backgroundColor: Colors[currentTheme].primary }]}
           onPress={() => router.push('/telas_extras/avisos')}
@@ -1083,5 +1081,11 @@ const styles = StyleSheet.create({
   helpInfoText: {
     fontSize: 16,
     lineHeight: 24,
+  },
+  versionText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 10,
+    zIndex: 0,
   },
 });

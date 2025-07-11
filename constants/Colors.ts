@@ -11,6 +11,7 @@ const tintColorDark = '#fff';
 export type ThemeColors = {
   text: string;
   background: string;
+  backgroundModal: string;
   tint: string;
   icon: string;
   tabIconDefault: string;
@@ -306,6 +307,11 @@ let customTheme = {
 // Função para carregar o tema custom do AsyncStorage
 const loadCustomTheme = async () => {
   try {
+    // Verificar se estamos no ambiente web
+    if (typeof window === 'undefined') {
+      return customTheme; // Retorna o tema padrão se não estiver no browser
+    }
+    
     const customThemeStr = await AsyncStorage.getItem('customTheme');
     if (customThemeStr) {
       return JSON.parse(customThemeStr);
@@ -317,15 +323,29 @@ const loadCustomTheme = async () => {
   }
 };
 
-// Carrega o tema custom do AsyncStorage
-loadCustomTheme().then(theme => {
-  customTheme = theme;
-});
+// Inicializar o tema custom de forma segura
+let customThemeLoaded = false;
+const initializeCustomTheme = async () => {
+  if (!customThemeLoaded) {
+    try {
+      customTheme = await loadCustomTheme();
+      customThemeLoaded = true;
+    } catch (error) {
+      console.error('Error initializing custom theme:', error);
+    }
+  }
+};
+
+// Chamar a inicialização apenas quando necessário
+if (typeof window !== 'undefined') {
+  initializeCustomTheme();
+}
 
 export const Colors: Record<ThemeType, ThemeColors> = {
   default: {
     text: '#11181C',
     background: '#4A2C2A',
+    backgroundModal: 'rgba(0,0,0,0.7)',
     tint: '#8B4513',
     icon: '#E0E0E0',
     tabIconDefault: '#E0E0E0',
@@ -471,6 +491,7 @@ export const Colors: Record<ThemeType, ThemeColors> = {
   dark: {
     text: '#ECEDEE',
     background: '#151718',
+    backgroundModal: 'rgba(0,0,0,0.7)',
     tint: '#fff',
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
@@ -616,6 +637,7 @@ export const Colors: Record<ThemeType, ThemeColors> = {
   light: {
     text: '#11181C',
     background: '#F0F0F0',
+    backgroundModal: 'rgba(0,0,0,0.7)',
     tint: '#0A7EA4',
     icon: '#E0E0E0',
     tabIconDefault: '#E0E0E0',

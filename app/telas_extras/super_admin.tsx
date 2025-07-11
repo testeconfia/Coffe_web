@@ -1,29 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { db } from '@/config/firebase';
+import { coffeeAlert } from '@/utils/coffeeAlert';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from 'expo-blur';
+import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
-  TextInput,
-  RefreshControl,
   Animated,
-  Modal,
-  FlatList,
   Dimensions,
+  FlatList,
+  Modal,
   Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
   Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { collection, query, where, getDocs, deleteDoc, doc, orderBy, limit, addDoc, serverTimestamp, updateDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { coffeeAlert } from '@/utils/coffeeAlert';
 
 interface AdminUser {
   id: string;
@@ -51,8 +52,10 @@ interface SystemSettings {
   maintenanceMode: boolean;
   welcomeMessage: string;
   serverUrl: string;
+  webhook_url : string ;
   pixKey: string;
   superAdmins: string[]; // Array of user IDs who are super admins
+  minAppVersion: string;
   [key: string]: any; // Adicionar índice de string para compatibilidade com Firestore
 }
 
@@ -81,8 +84,10 @@ const SuperAdminScreen = () => {
     maintenanceMode: false,
     welcomeMessage: 'Bem-vindo ao nosso sistema de café!',
     serverUrl: 'https://44e2-168-228-94-157.ngrok-free.app',
+    webhook_url: '127.0.0.1',
     pixKey: '+5566999086599',
     superAdmins: [],
+    minAppVersion: '1.0.0',
   });
   const [stats, setStats] = useState({
     totalAdmins: 0,
@@ -700,6 +705,30 @@ const SuperAdminScreen = () => {
           <Text style={styles.settingsTitle}>Configurações do Sistema</Text>
           
           <View style={styles.settingsSection}>
+            <Text style={styles.settingsSectionTitle}>Versão do App</Text>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Versão Mínima</Text>
+              <TextInput
+                style={styles.input}
+                value={settings.minAppVersion}
+                onChangeText={(text) => {
+                  setSettings(prev => ({
+                    ...prev,
+                    minAppVersion: text
+                  }));
+                }}
+                placeholder="Digite a versão mínima"
+                placeholderTextColor="#999"
+                keyboardType="default"
+              />
+              <Text style={[styles.inputDescription, { color: '#999' }]}>
+                Versão atual: {Constants.expoConfig?.version || '1.0.0'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.settingsSection}>
             <Text style={styles.settingsSectionTitle}>Limites e Restrições</Text>
             
             <View style={styles.inputContainer}>
@@ -801,6 +830,32 @@ const SuperAdminScreen = () => {
                   serverUrl: value
                 })}
                 placeholder="URL do servidor"
+                placeholderTextColor="#999"
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>URL do Webhook</Text>
+              <TextInput
+                style={styles.input}
+                value={settings.webhook_url}
+                onChangeText={(value) => setSettings({
+                  ...settings,
+                  webhook_url: value
+                })}
+                placeholder="URL do servidor"
+                placeholderTextColor="#999"
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>ID da Máquina</Text>
+              <TextInput
+                style={styles.input}
+                value={settings.machineId}
+                onChangeText={(value) => setSettings({
+                  ...settings,
+                  machineId: value
+                })}
+                placeholder="ID da máquina"
                 placeholderTextColor="#999"
               />
             </View>
@@ -1404,5 +1459,10 @@ const styles = StyleSheet.create({
   superAdminItemEmail: {
     fontSize: 14,
     color: '#999',
+  },
+  inputDescription: {
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
 }); 

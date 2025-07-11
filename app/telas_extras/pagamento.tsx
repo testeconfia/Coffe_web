@@ -70,7 +70,6 @@ export default function PaymentScreen() {
         }
       }
     } catch (error) {
-      console.error('Erro ao atualizar o tema:', error);
     }
   }, [colorScheme]);
 
@@ -101,7 +100,6 @@ export default function PaymentScreen() {
           router.push('/acesso');
         }
       } catch (error) {
-        console.error('Erro ao verificar autenticação:', error);
         coffeeAlert('Ocorreu um erro ao verificar sua autenticação','error');
         router.push('/acesso');
       }
@@ -222,7 +220,6 @@ export default function PaymentScreen() {
         ]
       );
     } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
       coffeeAlert('Ocorreu um erro ao selecionar a imagem. Tente novamente.','error');
     }
   };
@@ -277,9 +274,7 @@ export default function PaymentScreen() {
           
           // Criar a string base64 com o prefixo de dados
           base64Image = `data:image/jpeg;base64,${manipulatedImage.base64}`;
-          console.log('Imagem convertida para base64 com sucesso');
         } catch (error) {
-          console.error('Erro ao converter imagem para base64:', error);
           coffeeAlert('Não foi possível processar a imagem. Tente novamente.','error');
           setIsLoading(false);
           return;
@@ -307,7 +302,8 @@ export default function PaymentScreen() {
       const userRef = doc(db, 'users', userToken);
       await updateDoc(userRef, {
         subscriptionStatus: 'avaliando',
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        lastPaymentId: paymentRef.id
       });
       
       // Salvar o ID do pagamento no AsyncStorage para referência
@@ -323,7 +319,6 @@ export default function PaymentScreen() {
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
       coffeeAlert('Ocorreu um erro ao processar seu pagamento. Por favor, tente novamente.','error');
     } finally {
       setIsLoading(false);

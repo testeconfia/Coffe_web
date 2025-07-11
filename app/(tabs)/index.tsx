@@ -1,37 +1,34 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import StatisticsButton from '@/components/StatisticsButton';
+import { db } from '@/config/firebase';
+import { Colors, ThemeType } from '@/constants/Colors';
+import { useApp } from '@/contexts/AppContext';
+import { coffeeAlert } from '@/utils/coffeeAlert';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MaskedView from '@react-native-masked-view/masked-view';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useFocusEffect } from 'expo-router';
+import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
-  TouchableOpacity,
-  Image,
-  Dimensions,
-  Modal,
+  StyleSheet,
+  Text,
   TextInput,
-  Animated,
-  ActivityIndicator,
-  RefreshControl,
-  Linking,
+  TouchableOpacity,
   useColorScheme,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { useApp } from '@/contexts/AppContext';
-import { db, auth } from '@/config/firebase';
-import { collection, doc, getDoc, onSnapshot, addDoc, serverTimestamp, query, where, getDocs, updateDoc, orderBy, limit } from 'firebase/firestore';
-import UpdateIndicator from '@/components/UpdateIndicator';
-import FirestoreUpdateIndicator from '@/components/FirestoreUpdateIndicator';
-import MaskedView from '@react-native-masked-view/masked-view';
-import StatisticsButton from '@/components/StatisticsButton';
-import { Colors, ThemeType } from '@/constants/Colors';
-import { coffeeAlert } from '@/utils/coffeeAlert';
 
-//const BASE_URL = 'http://192.168.238.18';
-//const BASE_URL = 'https://44e2-168-228-94-157.ngrok-free.app';
 const { width, height } = Dimensions.get('window');
 
 interface CoffeeStats {
@@ -52,6 +49,7 @@ interface SystemSettings {
   welcomeMessage: string;
   serverUrl: string;
   pixKey: string;
+  machineId: string;
   [key: string]: any;
 }
 
@@ -62,7 +60,8 @@ export default function HomeScreen() {
     subscriptionEndDate, 
     syncWithFirebase,
     isConnected,
-    checkConnection 
+    checkConnection,
+    checkAppVersion
   } = useApp();
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('default');
   const systemColorScheme = useColorScheme();
@@ -75,7 +74,7 @@ export default function HomeScreen() {
   const [dailyTip, setDailyTip] = useState('');
   const [fadeAnim] = useState(new Animated.Value(0));
   const [refreshing, setRefreshing] = useState(false);
-  const [sequence, setSequence] = useState<number[]>([]);
+  const [sequence, setSequence] = useState<string>('');
   const [inputSequence, setInputSequence] = useState('');
   const [subscriptionData, setSubscriptionData] = useState({
     status: 'inactive',
@@ -84,7 +83,7 @@ export default function HomeScreen() {
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   const [updateCount, setUpdateCount] = useState(0);
   const [countdown, setCountdown] = useState(60);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [coffeeStats, setCoffeeStats] = useState<CoffeeStats>({
     today: 0,
     total: 0,
@@ -92,6 +91,7 @@ export default function HomeScreen() {
   });
   const [recentCoffees, setRecentCoffees] = useState<any[]>([]);
   const [isAdminDevice, setIsAdminDevice] = useState(false);
+  const [amount, setAmount] = useState(0);
   const [statsLayout, setStatsLayout] = useState<'horizontal' | 'vertical'>('horizontal');
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     dailyCoffeeLimit: 5,
@@ -103,20 +103,17 @@ export default function HomeScreen() {
     },
     maintenanceMode: false,
     welcomeMessage: 'Bem-vindo ao nosso sistema de café!',
-    serverUrl: 'https://44e2-168-228-94-157.ngrok-free.app',
-    pixKey: '+5566999086599'
+    serverUrl: 'https://esp-server.neurelix.com.br',
+    pixKey: '+5566999086599',
+    machineId: 'PdeNG'
   });
 
   useEffect(() => {
-    loadUserData();
-    loadSubscriptionData();
-    loadCoffeeStats();
-    loadRecentCoffees();
+    checkAppVersion();
     setGreetingText();
     setRandomTip();
     startAnimation();
     checkAuthStatus();
-    atualiza_tudo();
     loadSystemSettings();
     // Configurar listeners do Firestore para atualizações automáticas
     setupFirestoreListeners();
@@ -125,6 +122,23 @@ export default function HomeScreen() {
     return () => {
       // Os listeners serão limpos automaticamente quando o componente for desmontado
     };
+  }, []);
+
+  // useEffect separado para operações assíncronas
+  useEffect(() => {
+    const initializeAsyncData = async () => {
+      try {
+        await atualiza_tudo();
+        await loadUserData();
+        await loadSubscriptionData();
+        await loadCoffeeStats();
+        await loadRecentCoffees();
+      } catch (error) {
+        console.error('Erro ao inicializar dados assíncronos:', error);
+      }
+    };
+
+    initializeAsyncData();
   }, []);
   
   // Reload data when screen is focused
@@ -136,7 +150,6 @@ export default function HomeScreen() {
         if (followSystem === 'true') {
           setCurrentTheme(systemColorScheme as ThemeType || 'default');
         }
-        console.log('Home screen focused, refreshing data...');
         refreshAllData();
       };
       loadData();
@@ -146,7 +159,6 @@ export default function HomeScreen() {
   const atualiza_tudo = async () => {
     await syncWithFirebase();
     const isdev = await AsyncStorage.getItem('isSuperAdmin');
-    console.log('isdev', isdev);
     if (isdev === 'true') {
       setIsAdminDevice(true);
     } else {
@@ -196,12 +208,11 @@ export default function HomeScreen() {
 
   const loadUserData = async () => {
     try {
-      if (!auth.currentUser) {
-        console.log('No user logged in, cannot load user data');
+      const userToken = await AsyncStorage.getItem('userToken');
+      if (!userToken) {
         return;
       }
       
-      console.log('User data loaded from AppContext');
     } catch (error) {
       console.error('Error loading user data:', error);
     }
@@ -225,20 +236,19 @@ export default function HomeScreen() {
   const refreshSubscriptionData = async () => {
     setIsSubscriptionLoading(true);
     try {
-      if (!auth.currentUser) {
-        console.log('No user logged in, cannot refresh subscription data');
+      const userToken = await AsyncStorage.getItem('userToken');
+      if (!userToken) {
         setIsSubscriptionLoading(false);
         return;
       }
 
       // Depois, buscar dados diretamente do Firestore para garantir
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const userDoc = await getDoc(doc(db, 'users', userToken));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const newStatus = userData.subscriptionStatus || 'inactive';
         const newEndDate = userData.subscriptionEndDate || null;
         
-        console.log('Subscription data refreshed from Firestore:', { status: newStatus, endDate: newEndDate });
         
         setSubscriptionData({
           status: newStatus,
@@ -267,16 +277,6 @@ export default function HomeScreen() {
       // Atualizar cafés recentes
       await loadRecentCoffees();
       
-      
-      // Atualizar saudação e dica do dia
-      //setGreetingText();
-      //setRandomTip();
-      
-      // Reiniciar animação
-      //fadeAnim.setValue(0);
-      //startAnimation();
-      
-      console.log('All data refreshed successfully');
     } catch (error) {
       console.error('Error refreshing all data:', error);
     }
@@ -328,24 +328,17 @@ export default function HomeScreen() {
       coffeeAlert('Verifique sua assinatura e tente novamente', 'error');
       return;
     }
-    console.log('Gerando sequência...');
-    console.log('systemSettings.serverUrl', systemSettings.serverUrl);
+    const userToken = await AsyncStorage.getItem('userToken');
+    const payload = `${systemSettings.machineId}:gerar|${userName}|${userToken}`
     try {
-      const response = await fetch(`${systemSettings.serverUrl}/generate-sequence`, {
-        method: 'GET',
+      const response = await fetch(`${systemSettings.serverUrl}`, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
-          'Origin': window.location.origin,
-          'Access-Control-Allow-Origin': '*',
-          'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
-          'ngrok-skip-browser-warning': '69420'    
         },
-        mode: 'cors',
-        credentials: 'omit'
+        body: payload
       });
-
-      console.log('response', response);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Erro ao gerar sequência.' }));
         coffeeAlert(
@@ -367,16 +360,66 @@ export default function HomeScreen() {
         setIsLoading(false);
         return;
       }
-      const data = await response.json();
-      console.log('Sequência gerada:', data.sequence);
       
-      // Verificar se data.sequence existe e é um array antes de usar join
-      if (data.sequence) {
-        setSequence(data.sequence);
-      } else {
-        console.log('Sequência inválida recebida:', data);
-        coffeeAlert('A sequência gerada não está no formato esperado.', 'error');
+      const data = await response.json();
+      console.log('data', data);
+      if (data.response === 'erro:ocupado') {
+        coffeeAlert(
+          'A máquina está ocupada no momento.\n\nQue tal jogar um dos nossos mini-games enquanto espera a máquina ser liberada?',
+          'warning',
+          [
+            {
+              text: 'Não, obrigado',
+              style: 'cancel',
+              onPress: () => {}
+            },
+            {
+              text: 'Vamos jogar!',
+              onPress: () => router.push('/jogos')
+            }
+          ]
+        );
+        setIsModalVisible(false);
+        setIsLoading(false);
+        return;
       }
+      
+      if (data.error === 'Sem resposta do ESP32 (timeout)') {
+        console.log('data', data);
+        coffeeAlert('A máquina está um pouco lenta no momento.\n\nQue tal jogar um dos nossos mini-games enquanto espera a máquina voltar a vida?',
+          'warning',
+          [
+            {
+              text: 'Não, obrigado',
+              style: 'cancel',
+              onPress: () => {}
+            },
+            {
+              text: 'Vamos jogar!',
+              onPress: () => router.push('/jogos')
+            }
+          ]
+        );
+        setIsModalVisible(false);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Verificar se a resposta tem o formato esperado
+      if (data.status === 'ok' && data.response && data.response.startsWith('sequencia:')) {
+        const sequencia = data.response.replace('sequencia:', '');
+        setSequence(sequencia); // Converter string para array de números
+        const isSuperAdmin = await AsyncStorage.getItem('isSuperAdmin');
+        if (isSuperAdmin === 'true') {
+          setConfirmationCode(sequencia);
+        }
+      } else {
+        coffeeAlert('A sequência gerada não está no formato esperado.', 'error');
+        setIsLoading(false);
+        return;
+      }
+      
+
       setIsModalVisible(true);
       setIsLoading(false);
       // Iniciar o contador regressivo quando o modal for aberto
@@ -384,7 +427,6 @@ export default function HomeScreen() {
       startCountdown();
     } catch (error) {
       setIsModalVisible(false);
-      console.log('Erro no generateSequence:', error);
       coffeeAlert('Verifique se a cafeteira esta ligada. \nCaso nao estiver ligada chame o monitor...\nLembre-se que voce deve estar conectado ao wifi "Hard_Lab"', 'error');
       setIsLoading(false);
     } 
@@ -437,7 +479,19 @@ export default function HomeScreen() {
       coffeeAlert('Por favor, selecione a quantidade de café desejada.','warning');
       return;
     }
-    console.log(confirmationCode, selectedQuantity);
+    console.log('confirmationCode', confirmationCode);
+    console.log('sequence', sequence);
+    console.log('selectedQuantity', selectedQuantity);
+    
+    // Verificar se é super admin para pular validação de sequência
+    const isSuperAdmin = await AsyncStorage.getItem('isSuperAdmin');
+    
+    // Validar se a sequência inserida corresponde à sequência gerada (apenas para usuários normais)
+    if (isSuperAdmin !== 'true' && sequence !== confirmationCode) {
+      coffeeAlert('Sequência inválida','error');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       if (confirmationCode.trim() === '') {
@@ -445,22 +499,19 @@ export default function HomeScreen() {
         return;
       }
       
-      const response = await fetch(`${systemSettings.serverUrl}/validate-sequence`, {
+      const payload = `${systemSettings.machineId}:validar|${confirmationCode}|${selectedQuantity}`
+      
+      const response = await fetch(`${systemSettings.serverUrl}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
-          'Origin': window.location.origin,
-          'Access-Control-Allow-Origin': '*',
-          'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
-          'ngrok-skip-browser-warning': '69420'    
         },
-        mode: 'cors',
-        body: JSON.stringify({ sequence: confirmationCode, quantity: selectedQuantity })
+        body: payload
       });
 
       const result = await response.json();
-
+      console.log('resulttttttttttttttttsahfaulhdshflpoujopsakd', result);
       if (response.ok) {
         // Salvar o café no Firestore
         await addDoc(collection(db, 'coffees'), {
@@ -510,13 +561,13 @@ export default function HomeScreen() {
 
         const message = typeof result.message === 'string' ? result.message : 'Operação realizada com sucesso';
         coffeeAlert(message, 'success');
-        setSequence([]);          // limpa a sequência gerada
+        setSequence('');          // limpa a sequência gerada
         setInputSequence('');       // limpa a entrada do usuário
         await syncWithFirebase();
         coffeeAlert('Código confirmado! Seu café ja ta saindo ... Lembre de por um copo para receber. (Aguarde alguns instantes)', 'success');
         setIsModalVisible(false);
         setConfirmationCode('');
-        setSelectedQuantity(null);
+        //setSelectedQuantity(null);
         if (countdownRef.current) {
           clearInterval(countdownRef.current);
         }
@@ -534,12 +585,12 @@ export default function HomeScreen() {
     }
   };
 
-  const navigateToCredit = async () => {
+  const navigateToCredit = async (amount: number) => {
     console.log('systemSettings.pixKey', systemSettings.pixKey);
     router.push({
       pathname: '/telas_extras/pagamento',
       params: { 
-        valor: '20.00', 
+        valor: amount.toString(), 
         chave_pix: systemSettings.pixKey 
       }
     });
@@ -565,7 +616,6 @@ export default function HomeScreen() {
       const userToken = await AsyncStorage.getItem('userToken');
       if (!userToken) return;
       
-      console.log('Configurando listeners do Firestore para atualizações automáticas na tela inicial');
       
       // Listener para dados do usuário
       const userDocRef = doc(db, 'users', userToken);
@@ -584,7 +634,6 @@ export default function HomeScreen() {
             });
           }
           
-          console.log('Dados do usuário atualizados no Firestore (tela inicial)');
           handleUpdate();
         }
       }, (error) => {
@@ -595,7 +644,6 @@ export default function HomeScreen() {
       const userNotificationsRef = doc(db, 'notifications', userToken);
       const unsubscribeNotifications = onSnapshot(userNotificationsRef, (doc) => {
         if (doc.exists()) {
-          console.log('Notificações do usuário atualizadas no Firestore (tela inicial)');
           handleUpdate();
         }
       }, (error) => {
@@ -606,7 +654,6 @@ export default function HomeScreen() {
       const globalNotificationsRef = doc(db, 'globalNotifications', 'global');
       const unsubscribeGlobal = onSnapshot(globalNotificationsRef, (doc) => {
         if (doc.exists()) {
-          console.log('Notificações globais atualizadas no Firestore (tela inicial)');
           handleUpdate();
         }
       }, (error) => {
@@ -617,7 +664,6 @@ export default function HomeScreen() {
       const settingsQuery = query(collection(db, 'settings'), limit(1));
       const unsubscribeSettings = onSnapshot(settingsQuery, (snapshot) => {
         if (!snapshot.empty) {
-          console.log('Configurações do sistema atualizadas no Firestore (tela inicial)');
           const settingsData = snapshot.docs[0].data() as SystemSettings;
           setSystemSettings(settingsData);
         }
@@ -739,7 +785,6 @@ export default function HomeScreen() {
         }
       }
     } catch (error) {
-      console.log('Erro ao carregar estatísticas:', error);
       coffeeAlert(
         'Não foi possível carregar as estatísticas. Verifique sua conexão com a internet e tente novamente.',
         'error'
@@ -857,7 +902,7 @@ export default function HomeScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.subscribeButton, { backgroundColor: Colors[currentTheme].subscribeButton }]}
-            onPress={navigateToCredit}
+            onPress={() => handleSubscribe(systemSettings.subscriptionPrices.monthly)}
           >
             <Text style={[styles.subscribeButtonText, { color: Colors[currentTheme].subscribeButtonText }]}>Assinar</Text>
           </TouchableOpacity>
@@ -865,186 +910,214 @@ export default function HomeScreen() {
       )}
     </Animated.View>
   );
+  const cancelar_sequencia = async () => {
+    try {
+      const payload = `${systemSettings.machineId}:cancelar`
+      console.log('payload', payload);
+      const response = await fetch(`${systemSettings.serverUrl}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: payload
+      });
+      const data = await response.json();
+      console.log('response', data);
+      if (!response.ok) {
+        const errorData = await response.json();
+      }
+    } catch (error) {
+      console.error('Error ao enviar cancelamento:', error);
+    } finally {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
+      setIsModalVisible(false);
+      setConfirmationCode('');
+      setSelectedQuantity(null);
+    }
+  }
+  const renderConfirmationModal = () => {
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    
+    // Verificar se é super admin quando o modal é renderizado
+    useEffect(() => {
+      const checkSuperAdmin = async () => {
+        const superAdminStatus = await AsyncStorage.getItem('isSuperAdmin');
+        console.log('superAdminStatus', superAdminStatus);
+        setIsSuperAdmin(superAdminStatus === 'true');
+      };
+      checkSuperAdmin();
+    }, []);
 
-  const renderConfirmationModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isModalVisible}
-      onRequestClose={() => {
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-        }
-        setIsModalVisible(false);
-      }}
-    >
-      <View style={styles.modalContainer}>
-        <View style={[styles.modalContent, { backgroundColor: Colors[currentTheme].background }]}>
-          <Text style={[styles.modalTitle, { color: Colors[currentTheme].textLight }]}>Confirmar Pedido</Text>
-          
-          <Text style={[styles.modalDescription, { color: Colors[currentTheme].textLight }]}>
-            Por favor, insira o código de confirmação e selecione a quantidade de café.
-          </Text>
-          
-          <View style={[styles.countdownContainer, { backgroundColor: Colors[currentTheme].activeSubscription }]}>
-            <Text style={[styles.countdownText, { color: Colors[currentTheme].activeText }]}>
-              Tempo restante: {countdown} segundos
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => {
+          if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+          }
+          setIsModalVisible(false);
+          cancelar_sequencia();
+        }}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: Colors[currentTheme].background }]}>
+            <Text style={[styles.modalTitle, { color: Colors[currentTheme].textLight }]}>Confirmar Pedido</Text>
+            
+            {isSuperAdmin && (
+              <View style={[styles.superAdminBadge, { backgroundColor: Colors[currentTheme].primary }]}>
+                <Text style={[styles.superAdminText, { color: Colors[currentTheme].textLight }]}>
+                  🔧 Modo Super Admin Ativo
+                </Text>
+              </View>
+            )}
+            
+            <Text style={[styles.modalDescription, { color: Colors[currentTheme].textLight }]}>
+              {isSuperAdmin 
+                ? 'Código preenchido automaticamente. Apenas selecione a quantidade.'
+                : 'Por favor, insira o código de confirmação e selecione a quantidade de café.'
+              }
             </Text>
-          </View>
-
-          <TextInput
-            style={[styles.codeInput, { 
-              backgroundColor: Colors[currentTheme].cardBackground,
-              color: Colors[currentTheme].textLight
-            }]}
-            value={confirmationCode}
-            onChangeText={setConfirmationCode}
-            placeholder="Código de confirmação"
-            placeholderTextColor={Colors[currentTheme].textLight}
-            keyboardType="numeric"
-            maxLength={4}
-            autoFocus
-          />
-
-          <Text style={[styles.quantityTitle, { color: Colors[currentTheme].textLight }]}>Selecione a quantidade:</Text>
-          <View style={styles.quantityContainer}>
-            <TouchableOpacity 
-              style={[
-                styles.quantityButton,
-                { backgroundColor: Colors[currentTheme].cardBackground },
-                selectedQuantity === '1/4' && [
-                  styles.quantityButtonSelected,
-                  { 
-                    backgroundColor: Colors[currentTheme].activeSubscription,
-                    borderColor: Colors[currentTheme].primary
-                  }
-                ]
-              ]}
-              onPress={() => setSelectedQuantity('1/4')}
-            >
-              <MaskedView
-                style={styles.maskedView}
-                maskElement={
-                  <View style={styles.mask}>
-                    <Image
-                      source={require('@/assets/imgs/xicara.png')}
-                      style={styles.image}
-                      resizeMode="contain"
-                    />
-                  </View>
-                }
-              >
-                <LinearGradient
-                  style={styles.gradient}
-                  colors={['#fff', '#fff', Colors[currentTheme].primary, Colors[currentTheme].primary]}
-                  locations={[0, 0.65, 0.7, 1]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                />
-              </MaskedView>
-              <Text style={[
-                styles.quantityText,
-                { color: Colors[currentTheme].textLight },
-                selectedQuantity === '1/4' && [
-                  styles.quantityTextSelected,
-                  { color: Colors[currentTheme].primary }
-                ]
-              ]}>1/4 copo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[
-                styles.quantityButton,
-                { backgroundColor: Colors[currentTheme].cardBackground },
-                selectedQuantity === '2/4' && [
-                  styles.quantityButtonSelected,
-                  { 
-                    backgroundColor: Colors[currentTheme].activeSubscription,
-                    borderColor: Colors[currentTheme].primary
-                  }
-                ]
-              ]}
-              onPress={() => setSelectedQuantity('2/4')}
-            >
-              <MaskedView
-                style={styles.maskedView}
-                maskElement={
-                  <View style={styles.mask}>
-                    <Image
-                      source={require('@/assets/imgs/xicara.png')}
-                      style={styles.image}
-                      resizeMode="contain"
-                    />
-                  </View>
-                }
-              >
-                <LinearGradient
-                  style={styles.gradient}
-                  colors={['#fff', '#fff', Colors[currentTheme].primary, Colors[currentTheme].primary]}
-                  locations={[0, 0.55, 0.6, 1]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                />
-              </MaskedView>
-              <Text style={[
-                styles.quantityText,
-                { color: Colors[currentTheme].textLight },
-                selectedQuantity === '2/4' && [
-                  styles.quantityTextSelected,
-                  { color: Colors[currentTheme].primary }
-                ]
-              ]}>2/4 copo</Text>
-            </TouchableOpacity>
-          </View>
           
-          <View style={styles.modalButtons}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.cancelButton, { backgroundColor: Colors[currentTheme].cardBackground }]} 
-              onPress={async () => {
-                try {
-                  const response = await fetch(`${systemSettings.serverUrl}/cancel-sequence`, {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
-                      'ngrok-skip-browser-warning': '69420'    
+            <View style={[styles.countdownContainer, { backgroundColor: Colors[currentTheme].activeSubscription }]}>
+              <Text style={[styles.countdownText, { color: Colors[currentTheme].activeText }]}>
+                Tempo restante: {countdown} segundos
+              </Text>
+            </View>
+
+            <TextInput
+              style={[styles.codeInput, { 
+                backgroundColor: Colors[currentTheme].cardBackground,
+                color: Colors[currentTheme].textLight
+              }]}
+              value={confirmationCode}
+              onChangeText={setConfirmationCode}
+              placeholder="Código de confirmação"
+              placeholderTextColor={Colors[currentTheme].textLight}
+              keyboardType="numeric"
+              maxLength={4}
+              autoFocus
+            />
+
+            <Text style={[styles.quantityTitle, { color: Colors[currentTheme].textLight }]}>Selecione a quantidade:</Text>
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity 
+                style={[
+                  styles.quantityButton,
+                  { backgroundColor: Colors[currentTheme].cardBackground },
+                  selectedQuantity === '1/4' && [
+                    styles.quantityButtonSelected,
+                    { 
+                      backgroundColor: Colors[currentTheme].activeSubscription,
+                      borderColor: Colors[currentTheme].primary
                     }
-                  });
-                  
-                  if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Error canceling sequence:', errorData);
+                  ]
+                ]}
+                onPress={() => setSelectedQuantity('1/4')}
+              >
+                <MaskedView
+                  style={styles.maskedView}
+                  maskElement={
+                    <View style={styles.mask}>
+                      <Image
+                        source={require('@/assets/imgs/xicara.png')}
+                        style={styles.image}
+                        resizeMode="contain"
+                      />
+                    </View>
                   }
-                } catch (error) {
-                  console.error('Error sending cancel request:', error);
-                } finally {
-                  if (countdownRef.current) {
-                    clearInterval(countdownRef.current);
+                >
+                  <LinearGradient
+                    style={styles.gradient}
+                    colors={['#fff', '#fff', Colors[currentTheme].primary, Colors[currentTheme].primary]}
+                    locations={[0, 0.65, 0.7, 1]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                  />
+                </MaskedView>
+                <Text style={[
+                  styles.quantityText,
+                  { color: Colors[currentTheme].textLight },
+                  selectedQuantity === '1/4' && [
+                    styles.quantityTextSelected,
+                    { color: Colors[currentTheme].primary }
+                  ]
+                ]}>1/4 copo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.quantityButton,
+                  { backgroundColor: Colors[currentTheme].cardBackground },
+                  selectedQuantity === '2/4' && [
+                    styles.quantityButtonSelected,
+                    { 
+                      backgroundColor: Colors[currentTheme].activeSubscription,
+                      borderColor: Colors[currentTheme].primary
+                    }
+                  ]
+                ]}
+                onPress={() => setSelectedQuantity('2/4')}
+              >
+                <MaskedView
+                  style={styles.maskedView}
+                  maskElement={
+                    <View style={styles.mask}>
+                      <Image
+                        source={require('@/assets/imgs/xicara.png')}
+                        style={styles.image}
+                        resizeMode="contain"
+                      />
+                    </View>
                   }
-                  setIsModalVisible(false);
-                  setConfirmationCode('');
-                  setSelectedQuantity(null);
-                }
-              }}
-            >
-              <Text style={[styles.modalButtonText, { color: Colors[currentTheme].textLight }]}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.confirmButton, { backgroundColor: Colors[currentTheme].primary }]} 
-              onPress={handleConfirmCode}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Text style={[styles.modalButtonText, { color: Colors[currentTheme].textLight }]}>Verificando...</Text>
-              ) : (
-                <Text style={[styles.modalButtonText, { color: Colors[currentTheme].textLight }]}>Confirmar</Text>
-              )}
-            </TouchableOpacity>
+                >
+                  <LinearGradient
+                    style={styles.gradient}
+                    colors={['#fff', '#fff', Colors[currentTheme].primary, Colors[currentTheme].primary]}
+                    locations={[0, 0.55, 0.6, 1]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                  />
+                </MaskedView>
+                <Text style={[
+                  styles.quantityText,
+                  { color: Colors[currentTheme].textLight },
+                  selectedQuantity === '2/4' && [
+                    styles.quantityTextSelected,
+                    { color: Colors[currentTheme].primary }
+                  ]
+                ]}>2/4 copo</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton, { backgroundColor: Colors[currentTheme].cardBackground }]} 
+                onPress={async () => {cancelar_sequencia()}}
+              >
+                <Text style={[styles.modalButtonText, { color: Colors[currentTheme].textLight }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.confirmButton, { backgroundColor: Colors[currentTheme].primary }]} 
+                onPress={handleConfirmCode}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Text style={[styles.modalButtonText, { color: Colors[currentTheme].textLight }]}>Verificando...</Text>
+                ) : (
+                  <Text style={[styles.modalButtonText, { color: Colors[currentTheme].textLight }]}>Confirmar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   // Função para formatar a data relativa
   const formatRelativeTime = (date: Date) => {
@@ -1097,16 +1170,13 @@ export default function HomeScreen() {
 
   const handleSubscribe = async (amount: number) => {
     try {
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + 1);
       router.push({
-        pathname: '/telas_extras/pagamento',
+        pathname: '/telas_extras/payment_selection',
         params: { 
-          valor: amount.toString(), 
-          chave_pix: systemSettings.pixKey 
+          valor: amount.toString(),
+          chave_pix: systemSettings.pixKey
         }
       });
-      return;
     } catch (error) {
       coffeeAlert('Não foi possível ativar a assinatura. Tente novamente.', 'error');
     }
@@ -1298,7 +1368,7 @@ export default function HomeScreen() {
             colors={
               subscriptionData.status === 'active' && !isLoading
                 ? [Colors[currentTheme].primary, Colors[currentTheme].accent]
-                : [Colors[currentTheme].textLight, Colors[currentTheme].textLight]
+                : [Colors[currentTheme].textLight, Colors[currentTheme].textDark]
             }
             style={styles.floatingButtonGradient}
             start={{ x: 0, y: 0 }}
@@ -1764,5 +1834,18 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.7,
+  },
+  superAdminBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    zIndex: 1,
+  },
+  superAdminText: {
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

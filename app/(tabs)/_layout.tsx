@@ -9,10 +9,6 @@ import { db } from '@/config/firebase';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors, ThemeType } from '@/constants/Colors';
 import { useApp } from '@/contexts/AppContext';
 

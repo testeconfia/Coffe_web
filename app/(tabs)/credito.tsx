@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
-import { db, auth } from '@/config/firebase';
+import { db } from '@/config/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, getDoc } from 'firebase/firestore';
 import { Colors, ThemeType } from '@/constants/Colors';
 import { useColorScheme } from 'react-native';
@@ -247,7 +247,7 @@ export default function CreditScreen() {
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 1);
       router.push({
-        pathname: '/telas_extras/pagamento',
+        pathname: '/telas_extras/payment_selection',
         params: { 
           valor: settings.subscriptionPrices.monthly.toString(),
           chave_pix: settings.pixKey
