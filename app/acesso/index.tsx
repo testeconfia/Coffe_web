@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '@/config/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
-import { coffeeAlert } from '@/utils/coffeeAlert';
+import { CoffeeModal, useCoffeeModal } from '@/components/CoffeeModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,6 +41,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const { visible, message, type, showModal, hideModal } = useCoffeeModal();
 
   // Adicionar um useEffect para lidar com o evento de voltar do dispositivo
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      coffeeAlert('Por favor, preencha todos os campos','error');
+      showModal('Por favor, preencha todos os campos','error');
       return;
     }
     console.log(email.toLowerCase(), password);
@@ -74,7 +75,7 @@ export default function LoginScreen() {
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        coffeeAlert('Email ou senha incorretos','error');
+        showModal('Email ou senha incorretos','error');
         setIsLoading(false);
         return;
       }
@@ -106,6 +107,7 @@ export default function LoginScreen() {
       // Salvar dados no AsyncStorage
       await Promise.all([
         AsyncStorage.setItem('userToken', userDoc.id),
+        AsyncStorage.setItem('userla', userData.password),
         AsyncStorage.setItem('userName', userData.userName || ''),
         AsyncStorage.setItem('userEmail', userData.email || ''),
         AsyncStorage.setItem('isAdmin', String(userData.isAdmin || false)),
@@ -117,7 +119,7 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Login error:', error);
-      coffeeAlert('Ocorreu um erro durante o login. Por favor, tente novamente.','error');
+      showModal('Ocorreu um erro durante o login. Por favor, tente novamente.','error');
     } finally {
       setIsLoading(false);
     }
@@ -226,10 +228,30 @@ export default function LoginScreen() {
                   Não tem uma conta? <Text style={styles.registerTextBold}>Cadastre-se</Text>
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.forgotPasswordButton}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  router.push('/acesso/forgot-password');
+                }}
+                activeOpacity={0.7}
+                disabled={isLoading}
+              >
+                <Text style={styles.forgotPasswordText}>
+                  Esqueci minha senha
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </LinearGradient>
+      <CoffeeModal
+        visible={visible}
+        message={message}
+        type={type}
+        onClose={hideModal}
+      />
     </SafeAreaView>
   );
 }
@@ -347,5 +369,13 @@ const styles = StyleSheet.create({
   registerTextBold: {
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  forgotPasswordButton: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    color: '#E0E0E0',
+    fontSize: 14,
   },
 }); 

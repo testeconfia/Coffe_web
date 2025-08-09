@@ -35,7 +35,7 @@ export default function PaymentSelectionScreen() {
   const [colors, setColors] = useState(Colors['default']);
   const [followSystemTheme, setFollowSystemTheme] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('');
-  const [mercadoPago, setMercadoPago] = useState<boolean>(false);
+  const [mercadoPago, setMercadoPago] = useState<boolean>(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isScreenMounted, setIsScreenMounted] = useState(true);
   const [isListenerActive, setIsListenerActive] = useState(false);
@@ -171,8 +171,15 @@ export default function PaymentSelectionScreen() {
             await AsyncStorage.setItem('subscriptionStatus', status);
             
             if(status === 'avaliando' && isScreenMounted){
-              console.log('Mostrando modal de avaliação...');
-              setIsModalVisible(true);
+              console.log('Redirecionando para tela de pagamento pendente...');
+              // Redirecionar para a tela de pagamento pendente com os parâmetros necessários
+              router.push({
+                pathname: '/telas_extras/pag_pendente',
+                params: {
+                  valor: valor.toString(),
+                  metodo: selectedMethod === 'credit' ? 'Cartão de Crédito' : 'PIX'
+                }
+              });
             }else if(status === 'active'){
               console.log('Status ativo, fechando modal...');
               router.push('/(tabs)');
@@ -360,7 +367,7 @@ const novo_pagamento = async () => {
       >
         <TouchableOpacity 
           style={[styles.backButton, { backgroundColor: colors.cardBackground }]}
-          onPress={() => router.back()}
+          onPress={() => router.replace('/(tabs)')}
         >
           <Ionicons name="arrow-back" size={24} color={colors.textLight} />
         </TouchableOpacity>

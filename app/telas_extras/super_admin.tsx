@@ -1,13 +1,4 @@
-import { db } from '@/config/firebase';
-import { coffeeAlert } from '@/utils/coffeeAlert';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
-import Constants from 'expo-constants';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { addDoc, collection, doc, getDocs, limit, onSnapshot, query, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -24,6 +15,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { db } from '@/config/firebase';
+import { collection, query, where, getDocs, addDoc, Timestamp, updateDoc, doc, limit, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { Ionicons } from '@expo/vector-icons';
+import { coffeeAlert } from '@/utils/coffeeAlert';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from 'expo-blur';
+import Constants from 'expo-constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface AdminUser {
@@ -62,6 +62,7 @@ interface SystemSettings {
 const { width, height } = Dimensions.get('window');
 
 const SuperAdminScreen = () => {
+  const router = useRouter();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState<'admins' | 'stats' | 'settings'>('admins');
@@ -69,11 +70,21 @@ const SuperAdminScreen = () => {
   const [isAddAdminModalVisible, setIsAddAdminModalVisible] = useState(false);
   const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
   const [isSuperAdminModalVisible, setIsSuperAdminModalVisible] = useState(false);
+  const [isResetPasswordModalVisible, setIsResetPasswordModalVisible] = useState(false);
   const [selectedSuperAdmin, setSelectedSuperAdmin] = useState<AdminUser | null>(null);
+  const [selectedUserForPasswordReset, setSelectedUserForPasswordReset] = useState<AdminUser | null>(null);
+  const [superAdminPassword, setSuperAdminPassword] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetPasswordStep, setResetPasswordStep] = useState<'search' | 'confirm' | 'change'>('search');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [filteredUsersForReset, setFilteredUsersForReset] = useState<AdminUser[]>([]);
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [showSuperAdminPassword, setShowSuperAdminPassword] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settings, setSettings] = useState<SystemSettings>({
     dailyCoffeeLimit: 5,
@@ -131,6 +142,14 @@ const SuperAdminScreen = () => {
     );
     setFilteredAdmins(filtered);
   }, [searchQuery, admins]);
+
+  useEffect(() => {
+    const filtered = admins.filter(user => 
+      user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+    );
+    setFilteredUsersForReset(filtered);
+  }, [userSearchQuery, admins]);
 
   const startAnimation = () => {
     Animated.parallel([
@@ -431,6 +450,85 @@ const SuperAdminScreen = () => {
     }
   };
 
+  const handleResetUserPassword = async () => {
+    if (!superAdminPassword || !newUserPassword || !confirmNewPassword) {
+      coffeeAlert('Por favor, preencha todos os campos.', 'warning');
+      return;
+    }
+
+    if (newUserPassword !== confirmNewPassword) {
+      coffeeAlert('As senhas não coincidem.', 'error');
+      return;
+    }
+
+    if (newUserPassword.length < 6) {
+      coffeeAlert('A nova senha deve ter pelo menos 6 caracteres.', 'error');
+      return;
+    }
+
+    if (!selectedUserForPasswordReset) {
+      coffeeAlert('Nenhum usuário selecionado.', 'error');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      // Atualizar a senha do usuário
+      await updateDoc(doc(db, 'users', selectedUserForPasswordReset.id), {
+        password: newUserPassword,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Limpar campos e resetar etapas
+      setSuperAdminPassword('');
+      setNewUserPassword('');
+      setConfirmNewPassword('');
+      setSelectedUserForPasswordReset(null);
+      setResetPasswordStep('search');
+      setUserSearchQuery('');
+      setIsResetPasswordModalVisible(false);
+
+      coffeeAlert(`Senha do usuário ${selectedUserForPasswordReset.name} alterada com sucesso!`, 'success');
+    } catch (error) {
+      console.error('Erro ao resetar senha:', error);
+      coffeeAlert('Ocorreu um erro ao alterar a senha do usuário.', 'error');
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  const handleConfirmUserSelection = () => {
+    if (!selectedUserForPasswordReset) {
+      coffeeAlert('Por favor, selecione um usuário.', 'warning');
+      return;
+    }
+    setResetPasswordStep('confirm');
+  };
+
+  const handleConfirmSuperAdminPassword = async () => {
+    if (!superAdminPassword) {
+      coffeeAlert('Por favor, digite sua senha de super admin.', 'warning');
+      return;
+    }
+    const senha =  await AsyncStorage.getItem('userla');
+    if (superAdminPassword !== senha) {
+      coffeeAlert('Senha de super admin incorreta.', 'error');
+      return;
+    }
+    setResetPasswordStep('change');
+  };
+
+  const handleBackToSearch = () => {
+    setResetPasswordStep('search');
+    setSelectedUserForPasswordReset(null);
+    setUserSearchQuery('');
+  };
+
+  const handleBackToConfirm = () => {
+    setResetPasswordStep('confirm');
+    setSuperAdminPassword('');
+  };
+
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
     if (typeof date === 'string') return date;
@@ -483,6 +581,20 @@ const SuperAdminScreen = () => {
           >
             <Ionicons name="shield" size={24} color="#fff" />
             <Text style={styles.addButtonText}>Gerenciar Super Admins</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.resetPasswordButton}
+          onPress={() => setIsResetPasswordModalVisible(true)}
+        >
+          <LinearGradient
+            colors={['#4CAF50', '#388E3C']}
+            style={styles.addButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Ionicons name="shield" size={24} color="#fff" />
+            <Text style={styles.addButtonText}>Trocar Senha</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -946,6 +1058,299 @@ const SuperAdminScreen = () => {
     </Modal>
   );
 
+  const renderResetPasswordModal = () => (
+    <Modal
+      visible={isResetPasswordModalVisible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => {
+        setIsResetPasswordModalVisible(false);
+        setSelectedUserForPasswordReset(null);
+        setSuperAdminPassword('');
+        setNewUserPassword('');
+        setConfirmNewPassword('');
+        setResetPasswordStep('search');
+        setUserSearchQuery('');
+      }}
+    >
+      <View style={styles.modalContainer}>
+        <BlurView intensity={80} style={styles.modalBlur}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {resetPasswordStep === 'search' && 'Pesquisar Usuário'}
+                {resetPasswordStep === 'confirm' && 'Confirmar Usuário'}
+                {resetPasswordStep === 'change' && 'Alterar Senha'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsResetPasswordModalVisible(false);
+                  setSelectedUserForPasswordReset(null);
+                  setSuperAdminPassword('');
+                  setNewUserPassword('');
+                  setConfirmNewPassword('');
+                  setResetPasswordStep('search');
+                  setUserSearchQuery('');
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.resetPasswordContent}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Etapa 1: Pesquisa */}
+                {resetPasswordStep === 'search' && (
+                  <>
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Pesquisar Usuário</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Nome ou email do usuário"
+                        placeholderTextColor="#999"
+                        value={userSearchQuery}
+                        onChangeText={setUserSearchQuery}
+                        autoCapitalize="none"
+                      />
+                    </View>
+
+                    {userSearchQuery.length > 0 && (
+                      <View style={styles.inputContainer}>
+                        <Text style={styles.inputLabel}>Resultados da Pesquisa</Text>
+                        <FlatList
+                          data={filteredUsersForReset}
+                          keyExtractor={(item) => item.id}
+                          renderItem={({ item }) => (
+                            <TouchableOpacity
+                              style={[
+                                styles.userItem,
+                                selectedUserForPasswordReset?.id === item.id && styles.userItemSelected
+                              ]}
+                              onPress={() => setSelectedUserForPasswordReset(item)}
+                            >
+                              <View style={styles.userItemContent}>
+                                <Text style={styles.userItemName}>{item.name}</Text>
+                                <Text style={styles.userItemEmail}>{item.email}</Text>
+                              </View>
+                              {selectedUserForPasswordReset?.id === item.id && (
+                                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                              )}
+                            </TouchableOpacity>
+                          )}
+                          style={styles.userList}
+                          showsVerticalScrollIndicator={false}
+                          scrollEnabled={false}
+                        />
+                      </View>
+                    )}
+
+                    <TouchableOpacity
+                      style={[styles.modalButton, !selectedUserForPasswordReset && styles.modalButtonDisabled]}
+                      onPress={handleConfirmUserSelection}
+                      disabled={!selectedUserForPasswordReset}
+                    >
+                      <LinearGradient
+                        colors={selectedUserForPasswordReset ? ['#4CAF50', '#388E3C'] : ['#666', '#444']}
+                        style={styles.modalButtonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Text style={styles.modalButtonText}>
+                          Próximo
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {/* Etapa 2: Confirmação */}
+                {resetPasswordStep === 'confirm' && (
+                  <>
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Usuário Selecionado</Text>
+                      {selectedUserForPasswordReset && (
+                        <View style={styles.userItem}>
+                          <View style={styles.userItemContent}>
+                            <Text style={styles.userItemName}>{selectedUserForPasswordReset.name}</Text>
+                            <Text style={styles.userItemEmail}>{selectedUserForPasswordReset.email}</Text>
+                          </View>
+                          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Sua Senha de Super Admin</Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <TextInput
+                          style={[styles.input, {flex: 1}]}
+                          placeholder="Digite sua senha para confirmar"
+                          placeholderTextColor="#fff"
+                          value={superAdminPassword}
+                          onChangeText={setSuperAdminPassword}
+                          secureTextEntry={!showSuperAdminPassword}
+                        />
+                        <TouchableOpacity 
+                          style={{marginLeft: 10}}
+                          onPress={() => setShowSuperAdminPassword(!showSuperAdminPassword)}
+                        >
+                          <Ionicons 
+                            name={showSuperAdminPassword ? "eye-off-outline" : "eye-outline"} 
+                            size={24} 
+                            color="#fff" 
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.inputDescription}>
+                        Digite sua senha para autorizar a alteração
+                      </Text>
+                    </View>
+
+                    <View style={styles.buttonRow}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.halfButton]}
+                        onPress={handleBackToSearch}
+                      >
+                        <LinearGradient
+                          colors={['#666', '#444']}
+                          style={styles.modalButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          <Text style={styles.modalButtonText}>
+                            Voltar
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.halfButton, !superAdminPassword && styles.modalButtonDisabled]}
+                        onPress={handleConfirmSuperAdminPassword}
+                        disabled={!superAdminPassword}
+                      >
+                        <LinearGradient
+                          colors={superAdminPassword ? ['#4CAF50', '#388E3C'] : ['#666', '#444']}
+                          style={styles.modalButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          <Text style={styles.modalButtonText}>
+                            Próximo
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+
+                {/* Etapa 3: Alteração de Senha */}
+                {resetPasswordStep === 'change' && (
+                  <>
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Usuário Selecionado</Text>
+                      {selectedUserForPasswordReset && (
+                        <View style={styles.userItem}>
+                          <View style={styles.userItemContent}>
+                            <Text style={styles.userItemName}>{selectedUserForPasswordReset.name}</Text>
+                            <Text style={styles.userItemEmail}>{selectedUserForPasswordReset.email}</Text>
+                          </View>
+                          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Nova Senha do Usuário</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Digite a nova senha"
+                        placeholderTextColor="#999"
+                        value={newUserPassword}
+                        onChangeText={setNewUserPassword}
+                        secureTextEntry
+                      />
+                      <Text style={styles.inputDescription}>
+                        Mínimo 6 caracteres
+                      </Text>
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Confirmar Nova Senha</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Confirme a nova senha"
+                        placeholderTextColor="#999"
+                        value={confirmNewPassword}
+                        onChangeText={setConfirmNewPassword}
+                        secureTextEntry
+                      />
+                    </View>
+
+                    <View style={styles.buttonRow}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.halfButton]}
+                        onPress={handleBackToConfirm}
+                      >
+                        <LinearGradient
+                          colors={['#666', '#444']}
+                          style={styles.modalButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          <Text style={styles.modalButtonText}>
+                            Voltar
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.halfButton, (isResettingPassword || !newUserPassword || !confirmNewPassword) && styles.modalButtonDisabled]}
+                        onPress={handleResetUserPassword}
+                        disabled={isResettingPassword || !newUserPassword || !confirmNewPassword}
+                      >
+                        <LinearGradient
+                          colors={(!isResettingPassword && newUserPassword && confirmNewPassword) ? ['#4CAF50', '#388E3C'] : ['#666', '#444']}
+                          style={styles.modalButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          {isResettingPassword ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={styles.modalButtonText}>
+                              Alterar Senha
+                            </Text>
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Informações de segurança */}
+                    <View style={styles.securityInfo}>
+                      <Text style={styles.securityInfoTitle}>🔒 Informações de Segurança</Text>
+                      <Text style={styles.securityInfoText}>
+                        • Apenas super administradores podem alterar senhas de usuários
+                      </Text>
+                      <Text style={styles.securityInfoText}>
+                        • Sua senha será verificada antes da alteração
+                      </Text>
+                      <Text style={styles.securityInfoText}>
+                        • A alteração será registrada no sistema
+                      </Text>
+                      <Text style={styles.securityInfoText}>
+                        • O usuário será notificado sobre a alteração
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </BlurView>
+      </View>
+    </Modal>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -1030,6 +1435,7 @@ const SuperAdminScreen = () => {
          renderSettings()}
          
         {renderSuperAdminModal()}
+        {renderResetPasswordModal()}
       </LinearGradient>
     </SafeAreaView>
   );
@@ -1170,6 +1576,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   addButton: {
+    marginBottom: 16,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1256,6 +1663,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  resetPasswordButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
   modalBlur: {
     width: '100%',
     height: '100%',
@@ -1264,6 +1676,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
+    maxHeight: '80%',
     backgroundColor: 'rgba(42, 42, 42, 0.9)',
     borderRadius: 16,
     padding: 20,
@@ -1461,8 +1874,72 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   inputDescription: {
+    color: '#fff',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4,
+  },
+  resetPasswordContent: {
+    paddingTop: 10,
+    maxHeight: 400,
+  },
+  userList: {
+    maxHeight: 150,
+    marginBottom: 16,
+  },
+  userItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  userItemSelected: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  userItemContent: {
+    flex: 1,
+  },
+  userItemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  userItemEmail: {
+    fontSize: 14,
+    color: '#999',
+  },
+  securityInfo: {
+    marginTop: 20,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  securityInfoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  securityInfoText: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 4,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  halfButton: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  modalButtonDisabled: {
+    opacity: 0.7,
   },
 }); 

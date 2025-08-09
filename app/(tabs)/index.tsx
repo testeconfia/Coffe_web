@@ -869,6 +869,16 @@ export default function HomeScreen() {
     }
   };
 
+  const handlePendingPayment = () => {
+    router.push({
+      pathname: '/telas_extras/pag_pendente',
+      params: {
+        valor: systemSettings.subscriptionPrices.monthly.toString(),
+        metodo: 'PIX'
+      }
+    });
+  }
+
   const renderSubscriptionSection = () => (
     <Animated.View style={[styles.subscriptionContainer, { opacity: fadeAnim, backgroundColor: Colors[currentTheme].cardBackground }]}>
       <View style={styles.subscriptionHeader}>
@@ -889,12 +899,13 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : subscriptionData.status === 'avaliando' ? (
-        <View style={[styles.evaluatingSubscription, { backgroundColor: Colors[currentTheme].evaluatingSubscription }]}>
+        <TouchableOpacity style={[styles.evaluatingSubscription, { backgroundColor: Colors[currentTheme].evaluatingSubscription }]} 
+        onPress={() => handlePendingPayment()}>
           <Text style={[styles.evaluatingText, { color: Colors[currentTheme].evaluatingText }]}>Pagamento em Análise</Text>
           <Text style={[styles.evaluatingDescription, { color: Colors[currentTheme].evaluatingDescription }]}>
             Seu pagamento está sendo verificado. Em breve sua assinatura será ativada.
           </Text>
-        </View>
+        </TouchableOpacity>
       ) : (
         <View style={[styles.expiredSubscription, { backgroundColor: 'rgba(255, 0, 0, 0.1)' }]}>
           <Text style={[styles.expiredText, { color: Colors[currentTheme].error }]}>

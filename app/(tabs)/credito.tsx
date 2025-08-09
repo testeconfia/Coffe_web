@@ -296,7 +296,7 @@ export default function CreditScreen() {
             status: data.status || 'pending',
             date: data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'),
             type: data.type || 'payment',
-            receiptImage: data.receiptImage || null
+            receiptImage: data.receiptImage || null,
           };
         });
 
@@ -552,27 +552,32 @@ export default function CreditScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: Colors[currentTheme].textLight }]}>Histórico de Transações</Text>
             <View style={[styles.transactionList, { backgroundColor: Colors[currentTheme].transactionList }]}>
-              {transactions.map((transaction) => (
-                <TouchableOpacity 
-                  key={transaction.id} 
-                  style={[styles.transactionItem, { backgroundColor: Colors[currentTheme].transactionItem }]}
-                  onPress={() => handleViewDetails(transaction)}
-                >
-                  <View style={styles.transactionInfo}>
-                    <Text style={[styles.transactionTitle, { color: Colors[currentTheme].transactionTitle }]}>
-                      {getTransactionTitle(transaction.type, transaction.status)}
+              {transactions.map((transaction) => {
+                if (transaction.status === 'deleted') {
+                  return null;
+                }
+                return (
+                  <TouchableOpacity 
+                    key={transaction.id} 
+                    style={[styles.transactionItem, { backgroundColor: Colors[currentTheme].transactionItem }]}
+                    onPress={() => handleViewDetails(transaction)}
+                  >
+                    <View style={styles.transactionInfo}>
+                      <Text style={[styles.transactionTitle, { color: Colors[currentTheme].transactionTitle }]}>
+                        {getTransactionTitle(transaction.type, transaction.status)}
+                      </Text>
+                      <Text style={[styles.transactionDate, { color: Colors[currentTheme].transactionDate }]}>{transaction.date}</Text>
+                    </View>
+                    <Text style={[
+                      styles.transactionAmount,
+                      { color: transaction.status === 'approved' ? Colors[currentTheme].success : 
+                              transaction.status === 'pending' ? Colors[currentTheme].warning : Colors[currentTheme].error }
+                    ]}>
+                      {formatCurrency(transaction.amount)}
                     </Text>
-                    <Text style={[styles.transactionDate, { color: Colors[currentTheme].transactionDate }]}>{transaction.date}</Text>
-                  </View>
-                  <Text style={[
-                    styles.transactionAmount,
-                    { color: transaction.status === 'approved' ? Colors[currentTheme].success : 
-                            transaction.status === 'pending' ? Colors[currentTheme].warning : Colors[currentTheme].error }
-                  ]}>
-                    {formatCurrency(transaction.amount)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
               {transactions.length === 0 && (
                 <Text style={[styles.emptyText, { color: Colors[currentTheme].emptyText }]}>Nenhuma transação encontrada</Text>
               )}

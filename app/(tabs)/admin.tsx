@@ -37,7 +37,7 @@ interface PaymentData {
   userId: string;
   userName: string;
   amount: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'deleted';
   date: string;
   method: string;
   receiptImage?: string;
@@ -460,47 +460,51 @@ export default function AdminScreen() {
     subscription.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     subscription.id.includes(searchQuery)
   );
-
-  const renderPaymentItem = ({ item }: { item: PaymentData }) => {
-    return (
-      <TouchableOpacity
-        style={[styles.paymentItem, { backgroundColor: Colors[currentTheme].cardBackground }]}
-        onPress={() => handleViewDetails(item)}
-      >
-        <View style={styles.paymentHeader}>
-          <Text style={[styles.paymentUserName, { color: Colors[currentTheme].textLight }]}>{item.userName}</Text>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: 
-              item.status === 'approved' ? Colors[currentTheme].success :
-              item.status === 'rejected' ? Colors[currentTheme].error : Colors[currentTheme].warning
-            }
-          ]}>
-            <Text style={styles.statusText}>
-              {item.status === 'approved' ? 'Aprovado' :
-               item.status === 'rejected' ? 'Rejeitado' : 'Pendente'}
-            </Text>
+    const renderPaymentItem = ({ item }: { item: PaymentData }) => {
+      if (item.status === 'deleted') {
+        return null;
+      }
+      
+      return (
+        <TouchableOpacity
+          style={[styles.paymentItem, { backgroundColor: Colors[currentTheme].cardBackground }]}
+          onPress={() => handleViewDetails(item)}
+        >
+          <View style={styles.paymentHeader}>
+            <Text style={[styles.paymentUserName, { color: Colors[currentTheme].textLight }]}>{item.userName}</Text>
+            <View style={[
+              styles.statusBadge,
+              { backgroundColor: 
+                item.status === 'approved' ? Colors[currentTheme].success :
+                item.status === 'rejected' ? Colors[currentTheme].error : Colors[currentTheme].warning
+              }
+            ]}>
+              <Text style={styles.statusText}>
+                {item.status === 'approved' ? 'Aprovado' :
+                 item.status === 'rejected' ? 'Rejeitado' :
+                 item.status === 'pending' ? 'Pendente' : 'Pendente'}
+              </Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.paymentDetails}>
-          <Text style={[styles.paymentAmount, { color: Colors[currentTheme].textLight }]}>R$ {item.amount.toFixed(2)}</Text>
-          <Text style={[styles.paymentDate, { color: Colors[currentTheme].textLight }]}>{item.date}</Text>
-        </View>
-        {item.receiptImage && (
-          <TouchableOpacity
-            style={[styles.viewReceiptButton, { backgroundColor: Colors[currentTheme].primary }]}
-            onPress={() => {
-              setSelectedItem(item);
-              setShowReceiptImage(true);
-            }}
-          >
-            <Ionicons name="image" size={16} color={Colors[currentTheme].textLight} />
-            <Text style={[styles.viewReceiptText, { color: Colors[currentTheme].textLight }]}>Ver Comprovante</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    );
-  };
+          <View style={styles.paymentDetails}>
+            <Text style={[styles.paymentAmount, { color: Colors[currentTheme].textLight }]}>R$ {item.amount.toFixed(2)}</Text>
+            <Text style={[styles.paymentDate, { color: Colors[currentTheme].textLight }]}>{item.date}</Text>
+          </View>
+          {item.receiptImage && (
+            <TouchableOpacity
+              style={[styles.viewReceiptButton, { backgroundColor: Colors[currentTheme].primary }]}
+              onPress={() => {
+                setSelectedItem(item);
+                setShowReceiptImage(true);
+              }}
+            >
+              <Ionicons name="image" size={16} color={Colors[currentTheme].textLight} />
+              <Text style={[styles.viewReceiptText, { color: Colors[currentTheme].textLight }]}>Ver Comprovante</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+      );
+    };
 
   const renderSubscriptionItem = ({ item }: { item: SubscriptionData }) => (
     <TouchableOpacity

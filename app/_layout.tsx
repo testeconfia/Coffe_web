@@ -35,14 +35,8 @@ export default function RootLayout() {
       if (Platform.OS === 'web') {
         const isAndroid = /Android/i.test(navigator.userAgent);
         if (isAndroid) {
-          coffeeAlert('Aviso: Esta pagina web é destinado a dispositivos IOS. Por favor, use o aplicativo para acessar o sistema.', 'warning', [
-            {
-              text: 'OK',
-              onPress: () => {
-                router.replace('/tela_funcao/sobre');
-              }
-            }
-          ]);
+          coffeeAlert('Aviso: Esta pagina web é destinado a dispositivos IOS. Por favor, use o aplicativo para acessar o sistema.', 'warning');
+          router.replace('/telas_extras/sobre');
           return;
         } }
         try {
@@ -92,6 +86,8 @@ export default function RootLayout() {
           <Stack.Screen name="telas_extras/financeiro" options={{ headerShown: false }} />
           <Stack.Screen name="telas_extras/sobre" options={{ headerShown: false }} />
           <Stack.Screen name="telas_extras/payment_selection" options={{ headerShown: false }} />
+          <Stack.Screen name="telas_extras/pag_pendente" options={{ headerShown: false }} />
+          <Stack.Screen name="acesso/forgot-password" options={{ headerShown: false }} />
           <Stack.Screen name="jogos" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { collection, query, where, getDocs, doc, orderBy, limit, addDoc, serverTimestamp, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, orderBy, limit, addDoc, serverTimestamp, updateDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,7 +29,7 @@ interface PaymentData {
   userId: string;
   userName: string;
   amount: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'deleted';
   date: string;
   method: string;
   receiptImage?: string;
@@ -37,6 +37,9 @@ interface PaymentData {
   pixCode?: string;
   createdAt: Date;
   updatedAt?: Date;
+  deletedBy?: string;
+  deletedAt?: Date;
+  deletedByUserName?: string;
 }
 
 interface FinancialStats {
@@ -44,6 +47,7 @@ interface FinancialStats {
   pendingPayments: number;
   approvedPayments: number;
   rejectedPayments: number;
+  deletedPayments: number;
   monthlyRevenue: number;
   activeSubscriptions: number;
 }
@@ -60,6 +64,7 @@ const FinanceiroScreen = () => {
     pendingPayments: 0,
     approvedPayments: 0,
     rejectedPayments: 0,
+    deletedPayments: 0,
     monthlyRevenue: 0,
     activeSubscriptions: 0
   });
@@ -151,7 +156,10 @@ const FinanceiroScreen = () => {
             installments: data.installments,
             pixCode: data.pixCode,
             createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate()
+            updatedAt: data.updatedAt?.toDate(),
+            deletedBy: data.deletedBy,
+            deletedAt: data.deletedAt?.toDate(),
+            deletedByUserName: data.deletedByUserName
           } as PaymentData;
         });
 
@@ -177,6 +185,7 @@ const FinanceiroScreen = () => {
       pendingPayments: 0,
       approvedPayments: 0,
       rejectedPayments: 0,
+      deletedPayments: 0,
       monthlyRevenue: 0,
       activeSubscriptions: 0
     };
@@ -191,6 +200,8 @@ const FinanceiroScreen = () => {
         stats.pendingPayments += payment.amount;
       } else if (payment.status === 'rejected') {
         stats.rejectedPayments += payment.amount;
+      } else if (payment.status === 'deleted') {
+        stats.deletedPayments += payment.amount;
       }
     });
 
@@ -296,6 +307,19 @@ const FinanceiroScreen = () => {
             <Text style={styles.statsLabel}>Pagamentos Rejeitados</Text>
           </LinearGradient>
         </View>
+        
+        <View style={[styles.statsCard, styles.statsCardFullWidth]}>
+          <LinearGradient
+            colors={['#9C27B0', '#7B1FA2']}
+            style={styles.statsCardGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="trash" size={32} color="#fff" />
+            <Text style={styles.statsValue}>{formatCurrency(stats.deletedPayments)}</Text>
+            <Text style={styles.statsLabel}>Pagamentos Deletados</Text>
+          </LinearGradient>
+        </View>
       </View>
     </Animated.View>
   );
@@ -336,7 +360,8 @@ const FinanceiroScreen = () => {
               { 
                 borderColor: 
                   item.status === 'approved' ? '#4CAF50' :
-                  item.status === 'pending' ? '#FFC107' : '#F44336'
+                  item.status === 'pending' ? '#FFC107' :
+                  item.status === 'deleted' ? '#9E9E9E' : '#F44336'
               }
             ]}
             onPress={() => {
@@ -351,12 +376,14 @@ const FinanceiroScreen = () => {
                 { 
                   backgroundColor: 
                     item.status === 'approved' ? '#4CAF50' :
-                    item.status === 'pending' ? '#FFC107' : '#F44336'
+                    item.status === 'pending' ? '#FFC107' :
+                    item.status === 'deleted' ? '#9E9E9E' : '#F44336'
                 }
               ]}>
                 <Text style={styles.statusText}>
                   {item.status === 'approved' ? 'Aprovado' :
-                   item.status === 'pending' ? 'Pendente' : 'Rejeitado'}
+                   item.status === 'pending' ? 'Pendente' : 
+                   item.status === 'deleted' ? 'Deletado' : 'Rejeitado'}
                 </Text>
               </View>
             </View>
@@ -375,12 +402,53 @@ const FinanceiroScreen = () => {
       />
     </Animated.View>
   );
-
+  const apagarPagamento = async (id: string) => {
+    try {
+      // Buscar informações do usuário atual
+      const userToken = await AsyncStorage.getItem('userToken');
+      const userName = await AsyncStorage.getItem('userName') || 'Usuário Desconhecido';
+      
+      // Confirmação antes de deletar
+      coffeeAlert('Tem certeza que deseja deletar este pagamento?', 'warning', [
+        {
+          text: 'Não, cancelar',
+          style: 'cancel',
+          onPress: () => {}
+        },
+        {
+          text: 'Sim, deletar',
+          onPress: async () => {
+            try {
+              console.log('Apagando pagamento:', id);
+              if (id) {
+                const docRef = doc(db, 'payments', id);
+                await updateDoc(docRef, {
+                  status: 'deleted',
+                  deletedBy: userToken,
+                  deletedByUserName: userName,
+                  deletedAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                });
+                coffeeAlert('Pagamento deletado com sucesso', 'success');
+              }
+            } catch (error) {
+              console.error('Erro ao deletar pagamento:', error);
+              coffeeAlert('Erro ao deletar pagamento', 'error');
+            }
+          }
+        }
+      ]);
+    } catch (error) {
+      console.error('Erro ao preparar exclusão:', error);
+      coffeeAlert('Erro ao preparar exclusão', 'error');
+    }
+  };
   const renderPaymentModal = () => (
     <Modal
       visible={isPaymentModalVisible}
       transparent={true}
       animationType="slide"
+      style={{ zIndex: 900 }}
       onRequestClose={() => setIsPaymentModalVisible(false)}
     >
       <View style={styles.modalContainer}>
@@ -388,6 +456,11 @@ const FinanceiroScreen = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Detalhes do Pagamento</Text>
+              {selectedPayment?.status !== 'deleted' && (
+                <TouchableOpacity onPress={() => apagarPagamento(selectedPayment?.id || '')}>
+                  <Ionicons name="trash" size={24} color="#fff" />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 onPress={() => setIsPaymentModalVisible(false)}
                 style={styles.modalCloseButton}
@@ -423,13 +496,31 @@ const FinanceiroScreen = () => {
                     { 
                       color: 
                         selectedPayment.status === 'approved' ? '#4CAF50' :
-                        selectedPayment.status === 'pending' ? '#FFC107' : '#F44336'
+                        selectedPayment.status === 'pending' ? '#FFC107' :
+                        selectedPayment.status === 'deleted' ? '#F44336' : '#999'
                     }
                   ]}>
                     {selectedPayment.status === 'approved' ? 'Aprovado' :
-                     selectedPayment.status === 'pending' ? 'Pendente' : 'Rejeitado'}
+                     selectedPayment.status === 'pending' ? 'Pendente' :
+                     selectedPayment.status === 'deleted' ? 'Deletado' : 'Rejeitado'}
                   </Text>
                 </View>
+                {selectedPayment.status === 'deleted' && selectedPayment.deletedByUserName && (
+                  <View style={styles.modalInfo}>
+                    <Text style={styles.modalLabel}>Deletado por:</Text>
+                    <Text style={[styles.modalValue, { color: '#F44336' }]}>
+                      {selectedPayment.deletedByUserName}
+                    </Text>
+                  </View>
+                )}
+                {selectedPayment.status === 'deleted' && selectedPayment.deletedAt && (
+                  <View style={styles.modalInfo}>
+                    <Text style={styles.modalLabel}>Data da exclusão:</Text>
+                    <Text style={[styles.modalValue, { color: '#F44336' }]}>
+                      {selectedPayment.deletedAt.toLocaleDateString('pt-BR')} às {selectedPayment.deletedAt.toLocaleTimeString('pt-BR')}
+                    </Text>
+                  </View>
+                )}
                 {selectedPayment.installments && selectedPayment.installments > 1 && (
                   <View style={styles.modalInfo}>
                     <Text style={styles.modalLabel}>Parcelas:</Text>
@@ -627,6 +718,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 20,
+    gap: 8,
   },
   statsCard: {
     width: '48%',
@@ -644,6 +736,9 @@ const styles = StyleSheet.create({
         elevation: 5,
       },
     }),
+  },
+  statsCardFullWidth: {
+    width: '100%',
   },
   statsCardGradient: {
     padding: 16,

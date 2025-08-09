@@ -99,6 +99,7 @@ export const CoffeeModal: React.FC<CoffeeModalProps> = ({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      style={{ zIndex: 1000 }}
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
