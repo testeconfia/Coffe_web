@@ -5,17 +5,36 @@ import { Colors } from '@/constants/Colors';
 import { FontAwesome } from '@expo/vector-icons';
 import { coffeeAlert } from '@/utils/coffeeAlert';
 import Constants from 'expo-constants';
+import { useEffect } from 'react';
 
 export default function SobreScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  const checkAndRedirectAndroid = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        // Aguarda 2 segundos para o usuário ver a tela antes de redirecionar
+        setTimeout(async () => {
+          const apkUrl = 'https://play.google.com/store/apps/details?id=com.cafezao.computacao';
+          coffeeAlert('Redirecionando para o download...\nAguarde alguns instantes.', 'info');
+          await Linking.openURL(apkUrl);
+        }, 2000);
+      } catch (error) {
+        console.error('Erro ao redirecionar para Play Store:', error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    checkAndRedirectAndroid();
+  }, []);
   const handleDownload = async () => {
     try {
       coffeeAlert('Redirecionando para o download...\nAguarde alguns instantes.', 'info');
-      const apkUrl = 'https://dowloadappco.netlify.app/Cafezao_da_Computacao.apk';
+      const apkUrl = 'https://play.google.com/store/apps/details?id=com.cafezao.computacao';
       await Linking.openURL(apkUrl);
-      coffeeAlert('Download iniciado!', 'success');
+      // Remove o alerta de sucesso pois o redirecionamento já indica sucesso
     } catch (error) {
       console.error('Erro ao baixar:', error);
       coffeeAlert('Erro ao baixar o APK. Tente novamente.\n' + error, 'error');
@@ -93,10 +112,10 @@ export default function SobreScreen() {
                   Como instalar:
                 </Text>
                 <Text style={[styles.installationText, { color: colorScheme === 'dark' ? '#FFFFFF' : '#5D4037' }]}>
-                  1. Toque no botão acima para baixar.{'\n'}
-                  2. Ao finalizar o download, toque no arquivo.{'\n'}
-                  3. Caso apareça um aviso de segurança, permita a instalação de fontes desconhecidas.{'\n'}
-                  4. Instale ou atualize o aplicativo.{'\n'}
+                  1. Toque no botão acima para ir à Play Store.{'\n'}
+                  2. Na Play Store, toque em "Instalar" ou "Atualizar".{'\n'}
+                  3. Aguarde o download e instalação automática.{'\n'}
+                  4. Após a instalação, abra o aplicativo.{'\n'}
                   5. Pronto! Agora é só aproveitar o Cafézão da Computação.
                 </Text>
               </View>
