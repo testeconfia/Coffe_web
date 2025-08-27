@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cafézão da Computação",
     "slug": "cafezao-da-computacao",
-    "version": "1.0.7",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
