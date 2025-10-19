@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   useColorScheme,
   ActivityIndicator,
   Modal,
+  Image,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/Colors';
 import { coffeeAlert } from '@/utils/coffeeAlert';
 import * as WebBrowser from 'expo-web-browser';
-import { createPreference } from '@/config/mercadoPago';
+import { createPreference, createPixPayment, getPaymentStatus } from '@/config/mercadoPago';
 import { db } from '@/config/firebase';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, getDoc, deleteDoc } from 'firebase/firestore';
 
@@ -35,10 +37,17 @@ export default function PaymentSelectionScreen() {
   const [colors, setColors] = useState(Colors['default']);
   const [followSystemTheme, setFollowSystemTheme] = useState<boolean>(false);
   const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const [serverUrl, setServerUrl] = useState<string>('');
   const [mercadoPago, setMercadoPago] = useState<boolean>(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isScreenMounted, setIsScreenMounted] = useState(true);
   const [isListenerActive, setIsListenerActive] = useState(false);
+  const [isPixFlowActive, setIsPixFlowActive] = useState(false);
+  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+  const [qrCodeEMV, setQrCodeEMV] = useState<string | null>(null);
+  const [mpPaymentId, setMpPaymentId] = useState<string | null>(null);
+  const [paymentDocId, setPaymentDocId] = useState<string | null>(null);
+  const pollingRef = useRef<any>(null);
 
   // Função para atualizar o tema com base nas configurações
   const updateTheme = useCallback(async () => {
@@ -108,6 +117,7 @@ export default function PaymentSelectionScreen() {
               console.log('Webhook status:', response.status);
               setMercadoPago(response.status === 200);
               setWebhookUrl(webhookUrl);
+              setServerUrl(webhookUrl);
             } catch (error: any) {
               setMercadoPago(false);
             }
@@ -170,7 +180,7 @@ export default function PaymentSelectionScreen() {
             
             await AsyncStorage.setItem('subscriptionStatus', status);
             
-            if(status === 'avaliando' && isScreenMounted){
+            if(status === 'avaliando' && isScreenMounted && !isPixFlowActive){
               console.log('Redirecionando para tela de pagamento pendente...');
               // Redirecionar para a tela de pagamento pendente com os parâmetros necessários
               router.push({
@@ -225,8 +235,59 @@ export default function PaymentSelectionScreen() {
     }else{
       setValor(valorReal);
       setSelectedMethod('pix');
+      // limpar possíveis QR anteriores
+      setQrCodeBase64(null);
+      setQrCodeEMV(null);
+      setMpPaymentId(null);
+      setPaymentDocId(null);
+      setIsPixFlowActive(false);
     }
   }
+  const startPixPolling = (paymentId: string, docId: string, userId: string) => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+    }
+    pollingRef.current = setInterval(async () => {
+      try {
+        const data = await getPaymentStatus(paymentId);
+        const status = data?.status;
+        console.log('Polling status:', status, 'paymentId:', paymentId);
+        if (status === 'approved') {
+          // Atualiza pagamento e usuário
+          await updateDoc(doc(db, 'payments', docId), {
+            status: 'approved',
+            payment_status_detail: data.status_detail || null,
+            date_approved: data.date_approved || null,
+            updatedAt: serverTimestamp(),
+          });
+          const userRef = doc(db, 'users', userId);
+          await updateDoc(userRef, {
+            subscriptionStatus: 'active',
+            updatedAt: serverTimestamp(),
+            lastPaymentId: docId,
+          });
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          setIsPixFlowActive(false);
+          coffeeAlert('Pagamento aprovado! Sua assinatura foi ativada.', 'success');
+          router.push('/(tabs)');
+        } else if (status === 'expired' || status === 'cancelled' || status === 'rejected') {
+          await updateDoc(doc(db, 'payments', docId), {
+            status: status,
+            payment_status_detail: data.status_detail || null,
+            updatedAt: serverTimestamp(),
+          });
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          setIsPixFlowActive(false);
+          coffeeAlert('Pagamento expirado ou cancelado. Gere um novo QR para tentar novamente.', 'warning');
+        }
+      } catch (e) {
+        console.log('Erro no polling do pagamento:', e);
+      }
+    }, 2000);
+  };
+
   const handleMercadoPagoPayment = async () => {
     setIsLoading(true);
     try {
@@ -239,84 +300,198 @@ export default function PaymentSelectionScreen() {
         router.push('/acesso');
         return;
       }
-    
-      const paymentRecord = {
-        userId: userToken,
-        userName: userName,
-        amount: valor,
-        method: 'mercadopago',
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        externalReference: userToken
-      };
-
-      const preferenceData_tipo_pg = {
-        payment_methods: {
-          installments: 1,
-          default_installments: 1,
-          excluded_payment_types: selectedMethod === 'pix' ? [
-            { id: "credit_card" },
-            { id: "debit_card" },
-            { id: "atm" }
-          ] : [
-            { id: "pix" },
-            { id: "debit_card" },
-            { id: "bank_transfer" },
-            { id: "atm" }
-          ]
-        },
-        payment_methods_configurations: {
-          default_payment_method_id: selectedMethod === 'pix' ? "pix" : "credit_card",
-          installments: 1
-        },
-      };
-
-      const paymentRef = await addDoc(collection(db, 'payments'), paymentRecord);
-      
-      const preferenceData = {
-        items: [
-          {
-            title: "Assinatura Café Computação",
-            quantity: 1,
-            currency_id: "BRL",
-            unit_price: valor
-          }
-        ],
-        payer: {
-          name: userName,
-          email: email
-        },
-        back_urls: {
-          success: `${webhookUrl}/success`,
-          failure: `${webhookUrl}/failure`,
-          pending: `${webhookUrl}/pending`
-        },
-        auto_return: "approved",
-        external_reference: {
+      // Fluxo PIX direto via API
+      if (selectedMethod === 'pix') {
+        const paymentRecord = {
           userId: userToken,
           userName: userName,
-          email: email,
-          valor: valor,
+          amount: Number(valor),
+          method: 'mercadopago',
+          status: 'pending',
           createdAt: serverTimestamp(),
-          Id_banco: paymentRef.id
-        }, 
-        ...preferenceData_tipo_pg,
-        webhook_url: `${webhookUrl}/webhook`
-      };
+          updatedAt: serverTimestamp(),
+        };
 
-      const preference = await createPreference(preferenceData);
-      const result = await WebBrowser.openBrowserAsync(preference.init_point);
+        const paymentRef = await addDoc(collection(db, 'payments'), paymentRecord);
+        setPaymentDocId(paymentRef.id);
+        setIsPixFlowActive(true);
 
-      const userRef = doc(db, 'users', userToken);
-      await updateDoc(userRef, {
-        subscriptionStatus: 'avaliando',
-        updatedAt: serverTimestamp(),
-        lastPaymentId: paymentRef.id
-      });
-      
-      await AsyncStorage.setItem('lastPaymentId', paymentRef.id);
-      await AsyncStorage.setItem('subscriptionStatus', 'avaliando');
+        const expirationISO = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+        // Preferir backend quando disponível (inclui Web)
+        let mpData: any;
+        if (serverUrl) {
+          const resp = await fetch(`${serverUrl.replace(/\/$/, '')}/api/payments/pix`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: Number(valor),
+              description: 'Assinatura Café Computação',
+              external_reference: paymentRef.id,
+              notification_url: `${webhookUrl}/webhook`,
+              payerEmail: email || 'cliente@example.com',
+              metadata: {
+                Id_banco: paymentRef.id,
+                userId: userToken,
+                userName: userName,
+                email: email || '',
+                app: 'cafe-computacao',
+                tipo: 'assinatura',
+              },
+              expirationMinutes: 15,
+            }),
+          });
+          const ct = resp.headers.get('content-type') || '';
+          const payload = ct.includes('application/json') ? await resp.json() : await resp.text();
+          if (!resp.ok) throw new Error(typeof payload === 'string' ? payload : JSON.stringify(payload));
+          if (!ct.includes('application/json')) throw new Error('Resposta não JSON do backend: ' + String(payload));
+          mpData = {
+            id: payload.id,
+            point_of_interaction: { transaction_data: { qr_code_base64: payload.qr_code_base64, qr_code: payload.qr_code } },
+            date_of_expiration: payload.date_of_expiration,
+          };
+        } else {
+          // Apps nativos podem chamar a API MP direta
+          mpData = await createPixPayment({
+            transaction_amount: Number(valor),
+            description: 'Assinatura Café Computação',
+            external_reference: paymentRef.id,
+            notification_url: `${webhookUrl}/webhook`,
+            date_of_expiration: expirationISO,
+            payer: { email: email || 'cliente@example.com' },
+            metadata: {
+              Id_banco: paymentRef.id,
+              userId: userToken,
+              userName: userName,
+              email: email || '',
+              app: 'cafe-computacao',
+              tipo: 'assinatura',
+            },
+          });
+        }
+
+        const tx = mpData?.point_of_interaction?.transaction_data || {};
+        const qrB64 = tx.qr_code_base64 || null;
+        const qrEmv = tx.qr_code || null;
+
+        await updateDoc(doc(db, 'payments', paymentRef.id), {
+          mp_payment_id: String(mpData.id),
+          qr_code: qrEmv,
+          qr_code_base64: qrB64,
+          date_of_expiration: mpData.date_of_expiration || expirationISO,
+          status: 'pending',
+          updatedAt: serverTimestamp(),
+        });
+
+        setQrCodeBase64(qrB64);
+        setQrCodeEMV(qrEmv);
+        setMpPaymentId(String(mpData.id));
+
+        const userRef = doc(db, 'users', userToken);
+        await updateDoc(userRef, {
+          subscriptionStatus: 'avaliando',
+          updatedAt: serverTimestamp(),
+          lastPaymentId: paymentRef.id,
+        });
+        await AsyncStorage.setItem('lastPaymentId', paymentRef.id);
+        await AsyncStorage.setItem('subscriptionStatus', 'avaliando');
+
+        // iniciar polling via backend no Web; direto na API em apps nativos
+        if (serverUrl && Platform.OS === 'web') {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = setInterval(async () => {
+            try {
+              const resp = await fetch(`${serverUrl.replace(/\/$/, '')}/api/payments/${String(mpData.id)}`);
+              const ct = resp.headers.get('content-type') || '';
+              const jsonOrText = ct.includes('application/json') ? await resp.json() : await resp.text();
+              if (!resp.ok) throw new Error(typeof jsonOrText === 'string' ? jsonOrText : JSON.stringify(jsonOrText));
+              if (!ct.includes('application/json')) throw new Error('Resposta não JSON do backend: ' + String(jsonOrText));
+              const json = jsonOrText as any;
+              const status = json?.status;
+              console.log('Polling via backend:', status);
+              if (status === 'approved') {
+                await updateDoc(doc(db, 'payments', paymentRef.id), {
+                  status: 'approved',
+                  payment_status_detail: json.status_detail || null,
+                  date_approved: json.date_approved || null,
+                  updatedAt: serverTimestamp(),
+                });
+                const userRef = doc(db, 'users', userToken);
+                await updateDoc(userRef, {
+                  subscriptionStatus: 'active',
+                  updatedAt: serverTimestamp(),
+                  lastPaymentId: paymentRef.id,
+                });
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+                setIsPixFlowActive(false);
+                coffeeAlert('Pagamento aprovado! Sua assinatura foi ativada.', 'success');
+                router.push('/(tabs)');
+              } else if (status === 'expired' || status === 'cancelled' || status === 'rejected') {
+                await updateDoc(doc(db, 'payments', paymentRef.id), {
+                  status: status,
+                  payment_status_detail: json.status_detail || null,
+                  updatedAt: serverTimestamp(),
+                });
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+                setIsPixFlowActive(false);
+                coffeeAlert('Pagamento expirado ou cancelado. Gere um novo QR para tentar novamente.', 'warning');
+              }
+            } catch (e) {
+              console.log('Erro polling via backend:', e);
+            }
+          }, 2000);
+        } else {
+          startPixPolling(String(mpData.id), paymentRef.id, userToken);
+        }
+        console.log('PIX criado. paymentId:', mpData.id, 'docId:', paymentRef.id);
+      } else {
+        // Fluxo Cartão via Checkout Pro (mantido)
+        const paymentRecord = {
+          userId: userToken,
+          userName: userName,
+          amount: valor,
+          method: 'mercadopago',
+          status: 'pending',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        const paymentRef = await addDoc(collection(db, 'payments'), paymentRecord);
+
+        const preferenceData = {
+          items: [
+            { title: 'Assinatura Café Computação', quantity: 1, currency_id: 'BRL', unit_price: valor },
+          ],
+          payer: { name: userName, email: email },
+          back_urls: {
+            success: `${webhookUrl}/success`,
+            failure: `${webhookUrl}/failure`,
+            pending: `${webhookUrl}/pending`,
+          },
+          auto_return: 'approved',
+          // Mantém external_reference simples (string) no cartão também
+          external_reference: paymentRef.id,
+          webhook_url: `${webhookUrl}/webhook`,
+          payment_methods: {
+            excluded_payment_types: [ { id: 'pix' }, { id: 'atm' } ],
+            installments: 1,
+            default_installments: 1,
+          },
+        } as any;
+
+        const preference = await createPreference(preferenceData);
+        await WebBrowser.openBrowserAsync(preference.init_point);
+
+        const userRef = doc(db, 'users', userToken);
+        await updateDoc(userRef, {
+          subscriptionStatus: 'avaliando',
+          updatedAt: serverTimestamp(),
+          lastPaymentId: paymentRef.id,
+        });
+        await AsyncStorage.setItem('lastPaymentId', paymentRef.id);
+        await AsyncStorage.setItem('subscriptionStatus', 'avaliando');
+      }
       
     } catch (error) {
       coffeeAlert('Ocorreu um erro ao processar seu pagamento. Por favor, tente novamente.','error');
@@ -377,23 +552,23 @@ const novo_pagamento = async () => {
           transparent={true}
           style={styles.modalStyle}
         >
-          <View style={[styles.modalBackground, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
-            <View style={[styles.modalContent, { backgroundColor: colors.backgroundModal }]}>
-              <Text style={[styles.modalTitle, { color: colors.textLight }]}>
+          <View style={[styles.modalBackground, { backgroundColor: 'rgba(0,0,0,0.7)' }]}> 
+            <View style={[styles.modalContent, { backgroundColor: colors.backgroundModal }]}> 
+              <Text style={[styles.modalTitle, { color: colors.textLight }]}> 
                 Pagamento em Análise
               </Text>
-              <Text style={[styles.modalText, { color: colors.textLight }]}>
+              <Text style={[styles.modalText, { color: colors.textLight }]}> 
                 Você já possui um pagamento sendo avaliado. Deseja aguardar a verificação ou realizar um novo pagamento?
               </Text>
               <View style={styles.modalButtons}>
                 <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                  style={[styles.modalButton, { backgroundColor: colors.primary }]} 
                   onPress={() => {
                     setIsModalVisible(false);
                     router.push('/(tabs)');
                   }}
                 >
-                  <Text style={[styles.modalButtonText, { color: colors.textLight }]}>
+                  <Text style={[styles.modalButtonText, { color: colors.textLight }]}> 
                     Aguardar Verificação
                   </Text>
                 </TouchableOpacity>
@@ -403,7 +578,7 @@ const novo_pagamento = async () => {
                     novo_pagamento();
                   }}
                 >
-                  <Text style={[styles.modalButtonText, { color: colors.textLight }]}>
+                  <Text style={[styles.modalButtonText, { color: colors.textLight }]}> 
                     Realizar Novo Pagamento
                   </Text>
                 </TouchableOpacity>
@@ -413,23 +588,23 @@ const novo_pagamento = async () => {
         </Modal>
         {mercadoPago? (
           <View style={styles.content}>
-            <View style={[styles.paymentMethods, {flexDirection: 'column'}]}>
-              <Text style={[styles.title, { color: colors.textLight , fontSize: 30 , fontWeight: 'bold' , marginBottom: 20 , textAlign: 'center'}]}>
+            <View style={[styles.paymentMethods, {flexDirection: 'column'}]}> 
+              <Text style={[styles.title, { color: colors.textLight , fontSize: 30 , fontWeight: 'bold' , marginBottom: 20 , textAlign: 'center'}]}> 
                 Assinatura Mensal
               </Text>
-              <Text style={[styles.choro, { color: colors.textLight , fontSize: 16 , fontWeight: 'bold' , marginBottom: 20 , textAlign: 'center'}]}>
+              <Text style={[styles.choro, { color: colors.textLight , fontSize: 16 , fontWeight: 'bold' , marginBottom: 20 , textAlign: 'center'}]}> 
                 Paga no pix aii, ganha um descontinho.
               </Text>
             </View>
-          <Text style={[styles.title, { color: colors.textLight }]}>
+          <Text style={[styles.title, { color: colors.textLight }]}> 
             Formas de Pagamento
           </Text>
           
-          <Text style={[styles.value, { color: colors.textLight }]}>
+          <Text style={[styles.value, { color: colors.textLight }]}> 
             R$ {valor.toFixed(2)}
           </Text>
 
-          <View style={styles.paymentMethods}>
+          <View style={styles.paymentMethods}> 
             <TouchableOpacity
               style={[
                 styles.methodButton,
@@ -478,28 +653,42 @@ const novo_pagamento = async () => {
               </Text>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={[
-              styles.payButton, 
-              { backgroundColor: colors.primary },
-              isLoading && styles.disabledButton
-            ]}
-            onPress={handleMercadoPagoPayment}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={colors.textLight} />
-            ) : (
-              <Text style={[styles.payButtonText, { color: colors.textLight }]}>
-                {selectedMethod === 'credit' ? 'Pagar com Cartão' : 'Pagar com PIX'}
-              </Text>
-            )}
-          </TouchableOpacity>
+          {selectedMethod === 'pix' && qrCodeBase64 ? (
+            <View style={{ alignItems: 'center', width: '100%' }}> 
+              <Text style={{ color: colors.textLight, fontWeight: 'bold' }}>Escaneie o QR para pagar</Text>
+              <View style={{ backgroundColor: '#fff', padding: 12, borderRadius: 12 }}> 
+                <Image
+                  source={{ uri: `data:image/png;base64,${qrCodeBase64}` }}
+                  style={{ width: 220, height: 220, borderRadius: 12 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={{ color: colors.textLight, opacity: 0.8, fontSize: 12 }}>Pagamento PIX expira em ~15 minutos</Text>
+              {isLoading && <ActivityIndicator color={colors.textLight} />}
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.payButton, 
+                { backgroundColor: colors.primary },
+                isLoading && styles.disabledButton
+              ]}
+              onPress={handleMercadoPagoPayment}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={colors.textLight} />
+              ) : (
+                <Text style={[styles.payButtonText, { color: colors.textLight }]}> 
+                  {selectedMethod === 'credit' ? 'Pagar com Cartão' : 'Pagar com PIX'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
         ) : (
-          <View style={styles.content}>
-            <Text style={[styles.title, { color: colors.textLight }]}>
+          <View style={styles.content}> 
+            <Text style={[styles.title, { color: colors.textLight }]}> 
               Forma de Pagamento
             </Text>
               <Text style={[styles.subtitle, { color: colors.textLight }]}> 
@@ -511,7 +700,7 @@ const novo_pagamento = async () => {
                style={[styles.payButton, { backgroundColor: colors.primary }]}
                onPress={() => router.push({pathname: '/telas_extras/pagamento', params: {valor: valor}})}
               >
-                <Text style={[styles.payButtonText, { color: colors.textLight }]}>
+                <Text style={[styles.payButtonText, { color: colors.textLight }]}> 
                   Continuar com Pagamento PIX
                 </Text>
               </TouchableOpacity>
