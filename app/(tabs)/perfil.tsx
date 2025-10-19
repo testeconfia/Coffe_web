@@ -781,7 +781,7 @@ export default function ProfileScreen() {
               <Text style={[styles.logoutText, { color: Colors[currentTheme].error }]}>Sair</Text>
             )}
           </TouchableOpacity>
-          <Text style={[styles.versionText, {color: Colors[currentTheme].textLight, textAlign: 'center', marginBottom: 10}]}>Versão: {Constants.expoConfig?.version || 'N/A'}</Text>
+          <Text style={[styles.versionText, {color: Colors[currentTheme].textLight, textAlign: 'center', marginBottom: 10}]}>Versão: {Constants.expoConfig?.version || 'N/A'} !</Text>
         </ScrollView>
         <TouchableOpacity 
           style={[styles.fab, { backgroundColor: Colors[currentTheme].primary }]}
